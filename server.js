@@ -21,6 +21,9 @@ const familyLinkRoutes = require('./routes/familyLink');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy (REQUIRED for Render + express-rate-limit)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
