@@ -66,15 +66,41 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`========================================`);
-  console.log(`  Age Care Backend Server`);
-  console.log(`  Running on http://localhost:${PORT}`);
-  console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`========================================`);
-  getDb();
-});
+// Run migrations then start server
+const db = getDb();
+
+function runMigration(sql, label) {
+  return new Promise((resolve) => {
+    db.run(sql, (err) => {
+      if (err) {
+        if (err.message.includes('duplicate column') || err.message.includes('already exists')) {
+          console.log(`[Migration] ${label}: already exists`);
+        } else {
+          console.log(`[Migration] ${label} error:`, err.message);
+        }
+      } else {
+        console.log(`[Migration] ${label}: added`);
+      }
+      resolve();
+    });
+  });
+}
+
+async function startServer() {
+  await runMigration('ALTER TABLE users ADD COLUMN name TEXT', 'name column');
+  await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
+  await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
+
+  app.listen(PORT, () => {
+    console.log(`========================================`);
+    console.log(`  Age Care Backend Server`);
+    console.log(`  Running on http://localhost:${PORT}`);
+    console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`========================================`);
+  });
+}
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGINT', () => {
