@@ -88,6 +88,7 @@ function runMigration(sql, label) {
 
 async function startServer() {
   await runMigration('ALTER TABLE users ADD COLUMN name TEXT', 'name column');
+  await runMigration('ALTER TABLE users ADD COLUMN updated_at TEXT', 'updated_at column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
 
