@@ -1,0 +1,83 @@
+﻿const axios = require('axios');
+
+const SYSTEM_PROMPT = `You are a warm, patient, and supportive wellness companion for an older adult.
+Your role is to have a brief, friendly daily check-in conversation.
+Rules:
+- Keep responses to 2-4 short sentences. Use plain English, no jargon.
+- Never engage in romantic, flirtatious, or intimate roleplay.
+- Start by asking how they are feeling today.
+- If they mention physical distress, injury, or self-harm: acknowledge supportively and say "If you need immediate help, please call 911."
+- Do not provide medical diagnoses or treatment advice.`;
+
+async function getClaudeResponse(conversationHistory) {
+  try {
+    const messages = conversationHistory.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content,
+    }));
+
+    const result = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 150,
+        system: SYSTEM_PROMPT,
+        messages,
+      },
+      {
+        headers: {
+          'x-api-key': process.env.CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+      }
+    );
+    return result.data.content[0].text;
+  } catch (error) {
+    console.error("Claude API Error:", error.response ? error.response.data : error.message);
+    return "I'm having a little trouble thinking right now. Could you repeat that?";
+  }
+}
+
+
+async function summarizeConversation(conversationHistory) {
+  const messages = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+  const prompt = `Given this wellness check-in conversation, extract:
+1. A 1-sentence summary of the senior's state (e.g., "Feeling good, took medication, enjoyed a walk").
+2. Mood rating from 1 to 5 (1=very low, 5=very high).
+3. Did they confirm taking medication? Return "yes", "no", or "unknown".
+
+Conversation:
+${messages}
+
+Output ONLY valid JSON: { "summary": "...", "mood": 4, "medTaken": "unknown" }`;
+
+  if (!process.env.CLAUDE_API_KEY) {
+    console.error('WARNING: CLAUDE_API_KEY not set. Returning fallback summary.');
+    return { summary: 'Summary unavailable - API key missing.', mood: null, medTaken: null };
+  }
+
+  try {
+    const result = await axios.post('https://api.anthropic.com/v1/messages', {
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 200,
+      system: 'You are an assistant that extracts key information. Output ONLY valid JSON.',
+      messages: [{ role: 'user', content: prompt }],
+    }, {
+      headers: { 'x-api-key': process.env.CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    });
+    
+    let content = result.data.content[0].text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(content);
+    return {
+      summary: parsed.summary || 'Summary unavailable.',
+      mood: (parsed.mood >= 1 && parsed.mood <= 5) ? parsed.mood : null,
+      medTaken: parsed.medTaken === 'yes' ? true : parsed.medTaken === 'no' ? false : null,
+    };
+  } catch (error) {
+    console.error('Claude summarization failed:', error.message);
+    return { summary: 'Summary could not be generated.', mood: null, medTaken: null };
+  }
+}
+
+module.exports = { getClaudeResponse, summarizeConversation };

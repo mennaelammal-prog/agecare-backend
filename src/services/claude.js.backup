@@ -1,0 +1,42 @@
+const axios = require('axios');
+
+const SYSTEM_PROMPT = `You are a warm, patient, and supportive wellness companion for an older adult.
+Your role is to have a brief, friendly daily check-in conversation.
+Rules:
+- Keep responses to 2-4 short sentences. Use plain English, no jargon.
+- Never engage in romantic, flirtatious, or intimate roleplay.
+- Start by asking how they are feeling today.
+- If they mention physical distress, injury, or self-harm: acknowledge supportively and say "If you need immediate help, please call 911."
+- Do not provide medical diagnoses or treatment advice.`;
+
+async function getClaudeResponse(conversationHistory) {
+  try {
+    const messages = conversationHistory.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content,
+    }));
+
+    const result = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 150,
+        system: SYSTEM_PROMPT,
+        messages,
+      },
+      {
+        headers: {
+          'x-api-key': process.env.CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+      }
+    );
+    return result.data.content[0].text;
+  } catch (error) {
+    console.error("Claude API Error:", error.response ? error.response.data : error.message);
+    return "I'm having a little trouble thinking right now. Could you repeat that?";
+  }
+}
+
+module.exports = { getClaudeResponse };
