@@ -1,0 +1,156 @@
+﻿import { useState, useEffect } from 'react';
+
+function App() {
+  const [pin, setPin] = useState('');
+  const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [token, setToken] = useState('');
+
+  const [chatMessages, setChatMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const [checkinId, setCheckinId] = useState(null);
+
+  const addDigit = (d) => { if (pin.length < 6) setPin(pin + d); };
+  const clearAll = () => { setPin(''); setMessage(''); };
+  const backspace = () => setPin(pin.slice(0, -1));
+
+  const handleLogin = async () => {
+    setMessage('Logging in...');
+    setIsError(false);
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/senior-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log('TOKEN RECEIVED:', data.token);
+        setUserName(data.user.name);
+        setToken(data.token);
+        setLoggedIn(true);
+      } else {
+        setMessage(data.error || 'Invalid PIN');
+        setIsError(true);
+      }
+    } catch (err) {
+      setMessage('Error connecting to server.');
+      setIsError(true);
+    }
+  };
+
+  const startChat = async () => {
+    setIsThinking(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/checkin/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('TOKEN USED FOR START:', token);
+      const data = await res.json();
+      setCheckinId(data.checkinId);
+      setChatMessages([{ role: 'assistant', content: data.message }]);
+    } catch (err) {
+      setChatMessages([{ role: 'assistant', content: "Sorry, I couldn't start the check-in. Please try again." }]);
+    }
+    setIsThinking(false);
+  };
+
+  useEffect(() => {
+    if (loggedIn) startChat();
+    // eslint-disable-next-line
+  }, [loggedIn]);
+
+  const sendMessage = async () => {
+    if (!inputText.trim()) return;
+    const userMsg = inputText.trim();
+    setInputText('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsThinking(true);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/checkin/continue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ checkinId, userMessage: userMsg })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "I lost connection for a moment. Can you repeat that?" }]);
+    }
+    setIsThinking(false);
+  };
+
+  if (!loggedIn) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif' }}>
+        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', width: '350px' }}>
+          <h1 style={{ fontSize: '40px', marginBottom: '10px' }}>👋 Check-In</h1>
+          <p style={{ fontSize: '24px', color: '#555', marginBottom: '30px' }}>Enter your PIN</p>
+          <div style={{ backgroundColor: '#f9fafb', padding: '15px', borderRadius: '10px', fontSize: '30px', letterSpacing: '10px', marginBottom: '20px', minHeight: '60px', border: '2px solid #e5e7eb' }}>{pin || '····'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+            {[1,2,3,4,5,6,7,8,9].map(d => (
+              <button key={d} onClick={() => addDigit(d)} style={{ padding: '20px', fontSize: '24px', borderRadius: '10px', border: 'none', backgroundColor: '#e5e7eb', cursor: 'pointer', fontWeight: 'bold' }}>{d}</button>
+            ))}
+            <button onClick={backspace} style={{ padding: '20px', fontSize: '20px', borderRadius: '10px', border: 'none', backgroundColor: '#fecaca', cursor: 'pointer' }}>⌫</button>
+            <button onClick={() => addDigit(0)} style={{ padding: '20px', fontSize: '24px', borderRadius: '10px', border: 'none', backgroundColor: '#e5e7eb', cursor: 'pointer', fontWeight: 'bold' }}>0</button>
+            <button onClick={clearAll} style={{ padding: '20px', fontSize: '16px', borderRadius: '10px', border: 'none', backgroundColor: '#fecaca', cursor: 'pointer' }}>Clear</button>
+          </div>
+          <button onClick={handleLogin} style={{ width: '100%', padding: '18px', fontSize: '20px', borderRadius: '10px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>Start Check-In</button>
+          {message && <p style={{ marginTop: '20px', color: isError ? '#dc2626' : '#16a34a', fontSize: '18px' }}>{message}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif' }}>
+      <div style={{ backgroundColor: '#3b82f6', color: 'white', padding: '20px', textAlign: 'center', fontSize: '24px', fontWeight: 'bold' }}>
+        👋 Hi, {userName}!
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+        {chatMessages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: '15px' }}>
+            <div style={{
+              maxWidth: '70%',
+              padding: '15px 20px',
+              borderRadius: '20px',
+              fontSize: '20px',
+              backgroundColor: msg.role === 'user' ? '#3b82f6' : 'white',
+              color: msg.role === 'user' ? 'white' : 'black',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {isThinking && (
+          <div style={{ fontSize: '18px', color: '#888', fontStyle: 'italic' }}>Companion is typing...</div>
+        )}
+      </div>
+      <div style={{ padding: '20px', backgroundColor: 'white', display: 'flex', gap: '10px' }}>
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+          placeholder="Type your reply..."
+          style={{ flex: 1, padding: '15px', fontSize: '20px', borderRadius: '10px', border: '2px solid #e5e7eb' }}
+        />
+        <button onClick={sendMessage} style={{ padding: '15px 25px', fontSize: '20px', borderRadius: '10px', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer' }}>Send</button>
+      </div>
+    </div>
+  );
+}
+
+export default App;

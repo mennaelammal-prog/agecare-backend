@@ -1,0 +1,167 @@
+﻿import { useState, useEffect } from 'react';
+import Dashboard from './components/Dashboard';
+
+function App() {
+  const [pin, setPin] = useState('');
+  const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [token, setToken] = useState('');
+  
+  const [chatMessages, setChatMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const [checkinId, setCheckinId] = useState(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [finalSummary, setFinalSummary] = useState('');
+
+  const addDigit = (d) => { if (pin.length < 6) setPin(pin + d); };
+  const clearAll = () => { setPin(''); setMessage(''); };
+  const backspace = () => setPin(pin.slice(0, -1));
+
+  const handleLogin = async () => {
+    setMessage('Logging in...');
+    setIsError(false);
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/senior-login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+      if (res.ok) { 
+        console.log('TOKEN RECEIVED:', data.token);
+        setUserName(data.user.name); 
+        setToken(data.token);
+        localStorage.setItem('token', data.token); 
+        setLoggedIn(true); 
+      }
+      else { setMessage(data.error || 'Invalid PIN'); setIsError(true); }
+    } catch (err) { setMessage('Error connecting.'); setIsError(true); }
+  };
+
+  const startChat = async () => {
+    setIsThinking(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/checkin/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      });
+      console.log('TOKEN USED FOR START:', token);
+      const data = await res.json();
+      setCheckinId(data.checkinId);
+      setChatMessages([{ role: 'assistant', content: data.message }]);
+    } catch (err) { setChatMessages([{ role: 'assistant', content: "Sorry, I couldn't start." }]); }
+    setIsThinking(false);
+  };
+
+  useEffect(() => { if (loggedIn) startChat(); }, [loggedIn]);
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || sessionEnded) return;
+    const userMsg = inputText.trim();
+    setInputText('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsThinking(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/checkin/continue', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ checkinId, userMessage: userMsg })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+    } catch (err) { setChatMessages(prev => [...prev, { role: 'assistant', content: "I lost connection." }]); }
+    setIsThinking(false);
+  };
+
+  const endSession = async () => {
+    if (!checkinId) return;
+    setIsThinking(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/checkin/end', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ checkinId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to end session');
+      setFinalSummary(data.summary);
+      setSessionEnded(true);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Your check-in is complete. Have a wonderful day! Your family will see a short summary today." }]);
+    } catch (err) { 
+      console.error('End session error:', err);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I couldn't save your check-in. Please try again." }]);
+    }
+    setIsThinking(false);
+  };
+
+  if (!loggedIn) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif' }}>
+        <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', width: '350px' }}>
+          <h1 style={{ fontSize: '40px', marginBottom: '10px' }}>👋 Check-In</h1>
+          <p style={{ fontSize: '24px', color: '#555', marginBottom: '30px' }}>Enter your PIN</p>
+          <div style={{ backgroundColor: '#f9fafb', padding: '15px', borderRadius: '10px', fontSize: '30px', letterSpacing: '10px', marginBottom: '20px', minHeight: '60px', border: '2px solid #e5e7eb' }}>{pin || '····'}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
+            {[1,2,3,4,5,6,7,8,9].map(d => (<button key={d} onClick={() => addDigit(d)} style={{ padding: '20px', fontSize: '24px', borderRadius: '10px', border: 'none', backgroundColor: '#e5e7eb', cursor: 'pointer', fontWeight: 'bold' }}>{d}</button>))}
+            <button onClick={backspace} style={{ padding: '20px', fontSize: '20px', borderRadius: '10px', border: 'none', backgroundColor: '#fecaca', cursor: 'pointer' }}>⌫</button>
+            <button onClick={() => addDigit(0)} style={{ padding: '20px', fontSize: '24px', borderRadius: '10px', border: 'none', backgroundColor: '#e5e7eb', cursor: 'pointer', fontWeight: 'bold' }}>0</button>
+            <button onClick={clearAll} style={{ padding: '20px', fontSize: '16px', borderRadius: '10px', border: 'none', backgroundColor: '#d1d5db', cursor: 'pointer' }}>Clear</button>
+          </div>
+          <button onClick={handleLogin} style={{ width: '100%', padding: '20px', fontSize: '24px', backgroundColor: '#1a56db', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }}>Start Check-In</button>
+          {message && <p style={{ marginTop: '20px', fontSize: '20px', color: isError ? '#dc2626' : '#16a34a', fontWeight: 'bold' }}>{message}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (showDashboard) return <Dashboard />;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: '#f3f4f6', fontFamily: 'sans-serif' }}>
+      <div style={{ backgroundColor: 'white', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '32px', margin: 0 }}>☀️ Daily Check-In</h1>
+        <p style={{ color: '#666', fontSize: '18px', margin: '5px 0 0 0' }}>Welcome back, {userName}</p>
+        <button onClick={() => setShowDashboard(!showDashboard)} style={{ marginTop: '10px', padding: '8px 16px', background: '#1a56db', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>{showDashboard ? 'Back to Chat' : '📊 Family Dashboard'}</button>
+      </div>
+      
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        {chatMessages.map((msg, idx) => (
+          <div key={idx} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth: '75%', padding: '15px 20px', borderRadius: '20px', fontSize: '22px', lineHeight: '1.4', backgroundColor: msg.role === 'user' ? '#1a56db' : 'white', color: msg.role === 'user' ? 'white' : 'black', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>{msg.content}</div>
+          </div>
+        ))}
+        {isThinking && <p style={{ fontSize: '20px', color: '#888' }}>Companion is typing...</p>}
+      </div>
+
+      {finalSummary && (
+        <div style={{ margin: '0 20px 10px 20px', padding: '15px', backgroundColor: '#e0f2fe', borderRadius: '10px', border: '1px solid #0ea5e9' }}>
+          <p style={{ margin: 0, fontSize: '18px', color: '#0369a1' }}><strong>Summary saved for your family:</strong> {finalSummary}</p>
+        </div>
+      )}
+
+      <div style={{ padding: '20px', backgroundColor: 'white', borderTop: '1px solid #ddd' }}>
+        {!sessionEnded ? (
+          <>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} placeholder="Type your reply..." style={{ flex: 1, padding: '15px', fontSize: '22px', borderRadius: '10px', border: '2px solid #e5e7eb', outline: 'none' }} disabled={isThinking} />
+              <button onClick={sendMessage} style={{ padding: '15px 30px', fontSize: '22px', backgroundColor: '#1a56db', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold' }} disabled={isThinking}>Send</button>
+            </div>
+            {chatMessages.length > 2 && (
+              <button onClick={endSession} style={{ width: '100%', padding: '20px', fontSize: '24px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', marginTop: '15px' }} disabled={isThinking}>
+                End Check-In ✅
+              </button>
+            )}
+          </>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <button style={{ padding: '15px 40px', fontSize: '22px', backgroundColor: '#9ca3af', color: 'white', border: 'none', borderRadius: '10px', cursor: 'not-allowed' }} disabled>
+              Session Finished
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
