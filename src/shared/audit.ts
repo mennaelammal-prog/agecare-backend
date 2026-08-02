@@ -7,6 +7,8 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function auditLog(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  console.log([Audit]   - User:  - IP: );
+  const user = req.userId || 'anonymous';
+  const ip = req.ip || 'unknown';
+  console.log('[Audit] ' + req.method + ' ' + req.path + ' - User: ' + user + ' - IP: ' + ip);
   next();
 }
