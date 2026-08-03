@@ -12,9 +12,12 @@ model User {
   email     String   @unique
   password  String
   name      String?
-  role      String   @default("user")
+  role      String   @default("USER")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  shiftsAssigned Shift[] @relation("CaregiverShifts")
+  auditLogs      AuditLog[]
 
   @@map("users")
 }
@@ -28,30 +31,38 @@ model Client {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  shifts Shift[]
+
   @@map("clients")
 }
 
 model Shift {
-  id          String    @id @default(uuid())
-  clientId    String    @map("client_id")
-  caregiverId String    @map("caregiver_id")
-  startTime   DateTime  @map("start_time")
-  endTime     DateTime  @map("end_time")
-  status      String    @default("SCHEDULED")
+  id          String   @id @default(uuid())
+  clientId    String   @map("client_id")
+  caregiverId String   @map("caregiver_id")
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  status      String   @default("SCHEDULED")
   notes       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  caregiver User   @relation("CaregiverShifts", fields: [caregiverId], references: [id], onDelete: Cascade)
 
   @@map("shifts")
 }
 
-model CareNote {
+model AuditLog {
   id        String   @id @default(uuid())
-  clientId  String   @map("client_id")
-  shiftId   String?  @map("shift_id")
-  content   String
-  createdBy String   @map("created_by")
+  userId    String?  @map("user_id")
+  action    String
+  resource  String
+  details   String?
+  ipAddress String?  @map("ip_address")
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("care_notes")
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
 }
