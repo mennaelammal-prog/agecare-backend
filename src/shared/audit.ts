@@ -1,4 +1,5 @@
-﻿import { Request, Response, NextFunction } from 'express';
+﻿
+import { Request, Response, NextFunction } from 'express';
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -9,8 +10,6 @@ export interface AuthenticatedRequest extends Request {
 export function auditLog(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const user = req.userId || 'anonymous';
   const ip = req.ip || 'unknown';
-  const method = req.method;
-  const path = req.path;
-  console.log('[Audit] ' + method + ' ' + path + ' - User: ' + user + ' - IP: ' + ip);
+  console.log('[Audit] ' + req.method + ' ' + req.path + ' - User: ' + user + ' - IP: ' + ip);
   next();
 }
