@@ -1,4 +1,4 @@
-﻿import prisma from '../../prisma';
+﻿import { prisma } from '../../prisma';
 
 export async function getShifts() {
   return prisma.shift.findMany();
