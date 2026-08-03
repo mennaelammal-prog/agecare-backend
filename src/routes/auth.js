@@ -7,6 +7,7 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this-in-production';
 const SALT_ROUNDS = 10;
 
+// POST /api/auth/register
 router.post('/register', async (req, res) => {
   const { email, password, full_name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -24,7 +25,7 @@ router.post('/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
     const user = await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (email, password_hash, name, updated_at) VALUES (?, ?, ?, datetime(\"now\"))',
+        'INSERT INTO users (email, password_hash, name, updated_at) VALUES (?, ?, ?, datetime("now"))',
         [email, password_hash, full_name || null],
         function(err) {
           if (err) reject(err);
@@ -41,6 +42,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -65,6 +67,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/me
 router.get('/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
