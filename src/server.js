@@ -10,6 +10,7 @@ const { authMiddleware } = require('./middleware/auth');
 
 const authRoutes = require('./routes/auth');
 const checkinRoutes = require('./routes/checkin');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +31,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/checkin', authMiddleware, checkinRoutes);
+app.use('/api/chat', authMiddleware, chatRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
