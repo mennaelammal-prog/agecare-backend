@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../db');
@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
     const user = await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (email, password_hash, name, updated_at) VALUES (?, ?, ?, datetime("now"))',
+        'INSERT INTO users (email, password_hash, name, updated_at) VALUES (?, ?, ?, datetime(\"now\"))',
         [email, password_hash, full_name || null],
         function(err) {
           if (err) reject(err);

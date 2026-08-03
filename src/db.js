@@ -1,4 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
+﻿const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'agecare.db');
@@ -19,7 +19,7 @@ function getDb() {
 }
 
 function initTables() {
-  db.run(`
+  db.run(
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
@@ -32,12 +32,12 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  `, (err) => {
+  , (err) => {
     if (err) console.error('[DB] users table error:', err.message);
     else console.log('[DB] All tables ready');
   });
 
-  db.run(`
+  db.run(
     CREATE TABLE IF NOT EXISTS checkins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -45,7 +45,7 @@ function initTables() {
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  `);
+  );
 }
 
 function closeDb() {
