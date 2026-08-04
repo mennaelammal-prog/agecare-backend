@@ -20,31 +20,32 @@ function getDb() {
 
 function initTables() {
   db.run(
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      name TEXT,
-      phone TEXT,
-      role TEXT DEFAULT 'user',
-      reset_token TEXT,
-      reset_expires INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  , (err) => {
-    if (err) console.error('[DB] users table error:', err.message);
-    else console.log('[DB] All tables ready');
-  });
+    'CREATE TABLE IF NOT EXISTS users (' +
+    'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+    'email TEXT UNIQUE NOT NULL, ' +
+    'password_hash TEXT NOT NULL, ' +
+    'name TEXT, ' +
+    'phone TEXT, ' +
+    'role TEXT DEFAULT \'user\', ' +
+    'reset_token TEXT, ' +
+    'reset_expires INTEGER, ' +
+    'created_at DATETIME DEFAULT CURRENT_TIMESTAMP, ' +
+    'updated_at DATETIME DEFAULT CURRENT_TIMESTAMP' +
+    ')',
+    (err) => {
+      if (err) console.error('[DB] users table error:', err.message);
+      else console.log('[DB] All tables ready');
+    }
+  );
 
   db.run(
-    CREATE TABLE IF NOT EXISTS checkins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      mood TEXT,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
+    'CREATE TABLE IF NOT EXISTS checkins (' +
+    'id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
+    'user_id INTEGER NOT NULL, ' +
+    'mood TEXT, ' +
+    'notes TEXT, ' +
+    'created_at DATETIME DEFAULT CURRENT_TIMESTAMP' +
+    ')'
   );
 }
 
