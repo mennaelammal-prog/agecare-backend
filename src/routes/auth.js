@@ -7,7 +7,6 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this-in-production';
 const SALT_ROUNDS = 10;
 
-// POST /api/auth/register
 router.post('/register', async (req, res) => {
   const { email, password, full_name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -42,7 +41,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -67,7 +65,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me
 router.get('/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;

@@ -1,7 +1,4 @@
-﻿cd C:\Users\Tarek\check-in\backend
-
-@"
-require('dotenv').config();
+﻿require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -87,6 +84,3 @@ process.on('SIGINT', () => {
   closeDb();
   process.exit(0);
 });
-"@ | Out-File -FilePath "src/server.js" -Encoding UTF8
-
-Write-Host "server.js FIXED AUTOMATICALLY"
