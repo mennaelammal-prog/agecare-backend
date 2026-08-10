@@ -1,11 +1,13 @@
-﻿{
+{
   "name": "agecare-backend",
   "version": "1.0.0",
   "description": "Age Care App Backend API",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Running tests... (Install Jest later)\" && exit 0",
+    "lint": "echo \"Running linter... (Install ESLint later)\" && exit 0"
   },
   "dependencies": {
     "axios": "^1.7.0",
