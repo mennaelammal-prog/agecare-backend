@@ -1,8 +1,7 @@
-EXPLORER
-  CHECK-IN (Your project name)
-  ▼ .github    ...          [ 📄+ ]  [ 📁+ ]  <--- LOOK UP HERE FOR THE ICONS
-    ▼ workflows
-      ai-quality-gate.yml
-  ▸ src
-  ▸ node_modules
-  package.json
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: detect-private-key
