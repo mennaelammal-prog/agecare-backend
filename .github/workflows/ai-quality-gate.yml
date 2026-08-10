@@ -1,0 +1,8 @@
+EXPLORER
+  CHECK-IN (Your project name)
+  ▼ .github    ...          [ 📄+ ]  [ 📁+ ]  <--- LOOK UP HERE FOR THE ICONS
+    ▼ workflows
+      ai-quality-gate.yml
+  ▸ src
+  ▸ node_modules
+  package.json
