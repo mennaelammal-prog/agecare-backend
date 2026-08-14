@@ -9,7 +9,9 @@ const SALT_ROUNDS = 10;
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { email, password, full_name } = req.body;
+  const emailInput = typeof req.body.email === 'string' ? req.body.email : '';
+  const email = emailInput.trim().toLowerCase();
+  const { password, full_name } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -22,7 +24,7 @@ router.post('/register', async (req, res) => {
     const db = getDb();
 
     const existing = await new Promise((resolve, reject) => {
-      db.get('SELECT id FROM users WHERE email = ?', [email], (err, row) => {
+      db.get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', [email], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -70,7 +72,9 @@ router.post('/register', async (req, res) => {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const emailInput = typeof req.body.email === 'string' ? req.body.email : '';
+  const email = emailInput.trim().toLowerCase();
+  const { password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -80,7 +84,7 @@ router.post('/login', async (req, res) => {
     const db = getDb();
 
     const user = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+      db.get('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });

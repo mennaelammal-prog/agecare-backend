@@ -5,7 +5,9 @@ const { authMiddleware } = require("../middleware/auth");
 
 // POST /api/family/link - Link to a patient by email
 router.post("/link", authMiddleware, async (req, res) => {
-  const { patient_email, relationship } = req.body;
+  const patientEmailInput = typeof req.body.patient_email === 'string' ? req.body.patient_email : '';
+  const patient_email = patientEmailInput.trim().toLowerCase();
+  const relationship = typeof req.body.relationship === 'string' ? req.body.relationship.trim() : '';
   const familyUserId = req.userId;
 
   if (!patient_email) {
@@ -17,7 +19,7 @@ router.post("/link", authMiddleware, async (req, res) => {
 
     // Find patient by email
     const patient = await new Promise(function(resolve, reject) {
-      db.get("SELECT id, email, name FROM users WHERE email = ?", [patient_email], function(err, row) {
+      db.get("SELECT id, email, name FROM users WHERE LOWER(email) = LOWER(?)", [patient_email], function(err, row) {
         if (err) reject(err);
         else resolve(row);
       });

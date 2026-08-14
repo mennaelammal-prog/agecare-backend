@@ -47,6 +47,7 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
     try {
       const caregiver = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['caregiver@example.test', 'hash', 'Caregiver']);
       const patient = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['patient@example.test', 'hash', 'Patient']);
+      const daughter = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['daughter@example.test', 'hash', 'Daughter']);
       await run(db, "INSERT INTO family_contacts (user_id, name, relationship, email, is_active) VALUES (?, ?, ?, ?, 1)", [caregiver.id, 'Support Person', 'Daughter', 'support@example.test']);
       await run(db, "INSERT INTO family_contacts (user_id, name, relationship, linked_user_id, is_active) VALUES (?, ?, ?, ?, 1)", [caregiver.id, 'Patient', 'Mother', patient.id]);
       const token = jwt.sign({ userId: caregiver.id }, secret);
@@ -54,9 +55,18 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
       const contacts = await request(baseUrl, '/family', token);
       assert.equal(contacts.status, 200);
       assert.equal(contacts.body.count, 2);
+
+      const linkResponse = await fetch(`${baseUrl}/family/link/link`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_email: '  DAUGHTER@EXAMPLE.TEST  ', relationship: 'Daughter' }),
+      });
+      const linkBody = await linkResponse.json();
+      assert.equal(linkResponse.status, 200);
+      assert.equal(linkBody.patient.id, daughter.id);
       const linked = await request(baseUrl, '/family/link/linked', token);
       assert.equal(linked.status, 200);
-      assert.equal(linked.body.count, 2);
+      assert.equal(linked.body.count, 3);
       assert.equal(linked.body.data.some((item) => item.patient_name === 'Patient'), true);
     } finally {
       await new Promise((resolve) => db.close(resolve));
