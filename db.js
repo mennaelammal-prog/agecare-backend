@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, 'agecare.db');
+const DB_PATH = process.env.AGECARE_DB_PATH || path.join(__dirname, 'agecare.db');
 let db = null;
 
 function initDb() {

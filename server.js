@@ -17,9 +17,20 @@ const appointmentRoutes = require('./routes/appointments');
 const vitalRoutes = require('./routes/vitals');
 const authRoutes = require('./routes/auth');
 const familyLinkRoutes = require('./routes/familyLink');
+const careAccessRoutes = require('./routes/careAccess');
+const { statements: careAccessMigrations } = require('./migrations/careAccess');
+const { statements: familyContactMigrations } = require('./migrations/familyContacts');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const allowedOrigins = [
+  'https://agecare-frontend.onrender.com',
+  'https://family-care-chi.vercel.app',
+  'https://family-care-em3wyiw9e-family-care2.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  ...(process.env.CORS_ALLOWED_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean),
+];
 
 // Trust proxy (REQUIRED for Render + express-rate-limit)
 app.set('trust proxy', 1);
@@ -27,7 +38,7 @@ app.set('trust proxy', 1);
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: ['https://agecare-frontend.onrender.com', 'http://localhost:5173', 'http://localhost:3001'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(morgan('dev'));
@@ -46,6 +57,7 @@ app.get('/api/health', (req, res) => {
 // Public routes (no auth needed)
 app.use('/api/auth', authRoutes);
 app.use('/api/family/link', authMiddleware, familyLinkRoutes);
+app.use('/api/care-access', authMiddleware, careAccessRoutes);
 
 // Protected routes (require login token)
 app.use('/api/checkin', authMiddleware, checkinRoutes);
@@ -68,6 +80,7 @@ app.use((err, req, res, next) => {
 
 // Run migrations then start server
 const db = getDb();
+app.locals.db = db;
 
 function runMigration(sql, label) {
   return new Promise((resolve) => {
@@ -91,6 +104,8 @@ async function startServer() {
   await runMigration('ALTER TABLE users ADD COLUMN updated_at TEXT', 'updated_at column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
+  for (const migration of familyContactMigrations) await runMigration(migration.sql, migration.label);
+  for (const migration of careAccessMigrations) await runMigration(migration.sql, migration.label);
 
   app.listen(PORT, () => {
     console.log(`========================================`);

@@ -82,6 +82,10 @@ CREATE TABLE IF NOT EXISTS family_contacts (
   relationship TEXT,
   phone TEXT,
   email TEXT,
+  notify_email INTEGER DEFAULT 1,
+  notify_sms INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  linked_user_id INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -91,3 +95,5 @@ CREATE INDEX IF NOT EXISTS idx_checkins_user ON checkins(user_id);
 CREATE INDEX IF NOT EXISTS idx_medications_user ON medications(user_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_user ON appointments(user_id);
 CREATE INDEX IF NOT EXISTS idx_vitals_user ON vitals(user_id);
+CREATE INDEX IF NOT EXISTS idx_family_active ON family_contacts(is_active);
+CREATE INDEX IF NOT EXISTS idx_family_linked ON family_contacts(linked_user_id);
