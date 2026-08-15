@@ -15,8 +15,7 @@ async function authMiddleware(req, res, next) {
 
     const db = getDb();
     const user = await new Promise((resolve, reject) => {
-      // Fixed: don't select 'role' since your table doesn't have it
-      db.get('SELECT id, email, name FROM users WHERE id = ?', [decoded.userId], (err, row) => {
+      db.get('SELECT id, email, name, role FROM users WHERE id = ?', [decoded.userId], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
@@ -27,7 +26,7 @@ async function authMiddleware(req, res, next) {
     }
 
     req.userId = decoded.userId;
-    req.userRole = 'patient'; // Default role since your table has no role column
+    req.userRole = user.role || 'patient';
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError') {

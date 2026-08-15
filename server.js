@@ -4,7 +4,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-const { getDb, getDatabaseStatus } = require('./db');
+const { getDb, getDatabaseHealth, isPostgres } = require('./db');
+const { runPostgresSchema } = require('./database/postgresSchema');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const { authMiddleware } = require('./middleware/auth');
 
@@ -46,12 +47,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(apiLimiter);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({
+app.get('/api/health', async (req, res) => {
+  const database = await getDatabaseHealth();
+  const status = database.connection === 'ready' ? 200 : 503;
+  res.status(status).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    database: getDatabaseStatus(),
+    database,
   });
 });
 
@@ -101,13 +104,18 @@ function runMigration(sql, label) {
 }
 
 async function startServer() {
-  await runMigration('ALTER TABLE users ADD COLUMN name TEXT', 'name column');
-  await runMigration("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'patient'", 'role column');
-  await runMigration('ALTER TABLE users ADD COLUMN updated_at TEXT', 'updated_at column');
-  await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
-  await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
-  for (const migration of familyContactMigrations) await runMigration(migration.sql, migration.label);
-  for (const migration of careAccessMigrations) await runMigration(migration.sql, migration.label);
+  if (isPostgres()) {
+    await runPostgresSchema(db.pool);
+    console.log('[Migration] PostgreSQL schema is ready');
+  } else {
+    await runMigration('ALTER TABLE users ADD COLUMN name TEXT', 'name column');
+    await runMigration("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'patient'", 'role column');
+    await runMigration('ALTER TABLE users ADD COLUMN updated_at TEXT', 'updated_at column');
+    await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
+    await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
+    for (const migration of familyContactMigrations) await runMigration(migration.sql, migration.label);
+    for (const migration of careAccessMigrations) await runMigration(migration.sql, migration.label);
+  }
 
   app.listen(PORT, () => {
     console.log(`========================================`);
