@@ -73,6 +73,34 @@ test('account persistence repro distinguishes duplicate registration, wrong pass
     });
     assert.equal(validLogin.status, 200);
     assert.ok(validLogin.body.token);
+
+    const missingConfirmation = await jsonRequest(first.baseUrl, '/auth/me', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${validLogin.body.token}` },
+      body: JSON.stringify({ password: 'correct-password', confirmation: 'erase' }),
+    });
+    assert.equal(missingConfirmation.status, 400);
+
+    const wrongClosurePassword = await jsonRequest(first.baseUrl, '/auth/me', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${validLogin.body.token}` },
+      body: JSON.stringify({ password: 'wrong-password', confirmation: 'DELETE' }),
+    });
+    assert.equal(wrongClosurePassword.status, 401);
+
+    const closure = await jsonRequest(first.baseUrl, '/auth/me', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${validLogin.body.token}` },
+      body: JSON.stringify({ password: 'correct-password', confirmation: 'DELETE' }),
+    });
+    assert.equal(closure.status, 200);
+    assert.equal(closure.body.success, true);
+
+    const afterClosure = await jsonRequest(first.baseUrl, '/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'caregiver@example.test', password: 'correct-password' }),
+    });
+    assert.equal(afterClosure.status, 401);
   } finally {
     await stopServer(first.server);
   }

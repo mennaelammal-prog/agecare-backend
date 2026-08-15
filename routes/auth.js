@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../db');
+const { authMiddleware } = require('../middleware/auth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this-in-production';
 const SALT_ROUNDS = 10;
@@ -157,6 +158,51 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
     res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+function runStatement(db, sql, params) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function onRun(error) {
+      if (error) reject(error);
+      else resolve(this.changes || 0);
+    });
+  });
+}
+
+// DELETE /api/auth/me
+// A current user may permanently close only their own account after proving knowledge
+// of its password and supplying the explicit confirmation phrase. This removes related
+// links and consent grants before the user row, while database cascades remove owned care data.
+router.delete('/me', authMiddleware, async (req, res) => {
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const confirmation = typeof req.body?.confirmation === 'string' ? req.body.confirmation : '';
+  if (confirmation !== 'DELETE') {
+    return res.status(400).json({ error: 'Type DELETE to confirm permanent account closure.' });
+  }
+  if (!password) return res.status(400).json({ error: 'Current password is required to close the account.' });
+
+  try {
+    const db = getDb();
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT id, password_hash FROM users WHERE id = ?', [req.userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const passwordMatches = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatches) return res.status(401).json({ error: 'Current password is incorrect.' });
+
+    await runStatement(db, 'DELETE FROM care_access_audit WHERE actor_user_id = ? OR patient_user_id = ?', [req.userId, req.userId]);
+    await runStatement(db, 'DELETE FROM care_access_grants WHERE patient_user_id = ? OR caregiver_user_id = ?', [req.userId, req.userId]);
+    await runStatement(db, 'DELETE FROM family_contacts WHERE user_id = ? OR linked_user_id = ?', [req.userId, req.userId]);
+    const removed = await runStatement(db, 'DELETE FROM users WHERE id = ?', [req.userId]);
+    if (!removed) return res.status(404).json({ error: 'User not found.' });
+    return res.json({ success: true, message: 'Your AgeCare account and its associated data have been permanently deleted.' });
+  } catch (err) {
+    console.error('[Auth] Account closure error:', err.message);
+    return res.status(500).json({ error: 'Failed to close the account.' });
   }
 });
 
