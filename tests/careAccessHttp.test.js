@@ -84,10 +84,16 @@ test('patient-controlled care access requires approval and stops immediately aft
       const pendingRead = await request(baseUrl, `/care-access/grants/${grantId}/checkins`, caregiverToken);
       assert.equal(pendingRead.status, 403);
 
+      const invalidDuration = await request(baseUrl, `/care-access/${grantId}/approve`, patientToken, {
+        method: 'POST', body: { scopes: ['checkins:read'], expires_in_days: 2 },
+      });
+      assert.equal(invalidDuration.status, 400);
+
       const approved = await request(baseUrl, `/care-access/${grantId}/approve`, patientToken, {
-        method: 'POST', body: { scopes: ['checkins:read'], expires_at: '2027-01-01T00:00:00.000Z' },
+        method: 'POST', body: { scopes: ['checkins:read'], expires_in_days: 7 },
       });
       assert.equal(approved.status, 200);
+      assert.ok(new Date(approved.body.expires_at) > new Date());
 
       const wrongCaregiver = await request(baseUrl, `/care-access/grants/${grantId}/checkins`, unrelatedToken);
       assert.equal(wrongCaregiver.status, 403);

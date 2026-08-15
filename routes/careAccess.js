@@ -17,9 +17,16 @@ function requestedScopes(value) {
   return scopes.length <= 10 && scopes.every((scope) => ALLOWED_SCOPES.has(scope)) ? scopes : null;
 }
 
-function normalizedExpiry(value) {
-  if (!value) return { value: null };
-  const date = new Date(value);
+function normalizedExpiry(expiresAt, durationDays) {
+  if (durationDays !== undefined) {
+    const days = Number(durationDays);
+    if (![1, 7, 30, 90].includes(days)) return { error: 'Choose a permitted access duration.' };
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() + days);
+    return { value: date.toISOString() };
+  }
+  if (!expiresAt) return { value: null };
+  const date = new Date(expiresAt);
   if (Number.isNaN(date.getTime()) || date <= new Date()) return { error: 'Expiry must be a valid future date.' };
   const max = new Date();
   max.setFullYear(max.getFullYear() + 1);
@@ -94,7 +101,7 @@ router.get('/incoming', async (req, res) => {
 router.post('/:grantId/approve', async (req, res) => {
   const grantId = Number(req.params.grantId);
   const scopes = requestedScopes(req.body.scopes);
-  const expiry = normalizedExpiry(req.body.expires_at);
+  const expiry = normalizedExpiry(req.body.expires_at, req.body.expires_in_days);
   if (!Number.isSafeInteger(grantId) || grantId <= 0) return res.status(400).json({ error: 'Invalid grant ID.' });
   if (!scopes) return res.status(400).json({ error: 'Granted scopes are not permitted.' });
   if (expiry.error) return res.status(400).json({ error: expiry.error });
@@ -109,7 +116,7 @@ router.post('/:grantId/approve', async (req, res) => {
       [JSON.stringify(scopes), expiry.value, grantId, req.userId]);
     if (!changed.changes) return res.status(404).json({ error: 'Pending access request not found.' });
     await auditCareAccess(db, { grantId, actorUserId: req.userId, patientUserId: req.userId, action: 'grant.approve', scope: scopes.join(','), outcome: 'changed' });
-    return res.json({ success: true, message: 'Care access has been approved.' });
+    return res.json({ success: true, expires_at: expiry.value, message: 'Care access has been approved.' });
   } catch (error) {
     console.error('[CareAccess] Approve error:', error.message);
     return res.status(500).json({ error: 'Unable to approve access request.' });
@@ -150,6 +157,24 @@ router.get('/grants', async (req, res) => {
   } catch (error) {
     console.error('[CareAccess] Grant list error:', error.message);
     return res.status(500).json({ error: 'Unable to retrieve care grants.' });
+  }
+});
+
+// The patient can review their own currently active permissions and each selected expiry.
+router.get('/patient-grants', async (req, res) => {
+  try {
+    const rows = await getAll(req.app.locals.db,
+      `SELECT g.id, g.relationship, g.granted_scopes, g.granted_at, g.expires_at,
+              u.name AS caregiver_name
+       FROM care_access_grants g
+       JOIN users u ON u.id = g.caregiver_user_id
+       WHERE g.patient_user_id = ? AND g.status = 'active'
+         AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
+       ORDER BY g.granted_at DESC`, [req.userId]);
+    return res.json({ success: true, count: rows.length, data: rows });
+  } catch (error) {
+    console.error('[CareAccess] Patient grant list error:', error.message);
+    return res.status(500).json({ error: 'Unable to retrieve active permissions.' });
   }
 });
 
