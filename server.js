@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-const { getDb } = require('./db');
+const { getDb, getDatabaseStatus } = require('./db');
 const { apiLimiter } = require('./middleware/rateLimiter');
 const { authMiddleware } = require('./middleware/auth');
 
@@ -51,6 +51,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    database: getDatabaseStatus(),
   });
 });
 
@@ -101,6 +102,7 @@ function runMigration(sql, label) {
 
 async function startServer() {
   await runMigration('ALTER TABLE users ADD COLUMN name TEXT', 'name column');
+  await runMigration("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'patient'", 'role column');
   await runMigration('ALTER TABLE users ADD COLUMN updated_at TEXT', 'updated_at column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_token TEXT', 'reset_token column');
   await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');

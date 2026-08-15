@@ -41,11 +41,14 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
       await wait(150);
       try { if ((await fetch(`${baseUrl}/health`)).ok) { ready = true; break; } } catch { /* server is booting */ }
     }
-    assert.equal(ready, true, 'isolated backend should start');
+      assert.equal(ready, true, 'isolated backend should start');
+      const health = await fetch(`${baseUrl}/health`).then((response) => response.json());
+      assert.equal(health.database.persistentStorageConfigured, true);
+      assert.equal(Object.prototype.hasOwnProperty.call(health.database, 'path'), false);
 
-    const db = new sqlite3.Database(dbPath);
+      const db = new sqlite3.Database(dbPath);
     try {
-      const caregiver = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['caregiver@example.test', 'hash', 'Caregiver']);
+      const caregiver = await run(db, "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)", ['caregiver@example.test', 'hash', 'Caregiver', 'caregiver']);
       const patient = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['patient@example.test', 'hash', 'Patient']);
       const daughter = await run(db, "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)", ['daughter@example.test', 'hash', 'Daughter']);
       await run(db, "INSERT INTO family_contacts (user_id, name, relationship, email, is_active) VALUES (?, ?, ?, ?, 1)", [caregiver.id, 'Support Person', 'Daughter', 'support@example.test']);
@@ -55,6 +58,28 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
       const contacts = await request(baseUrl, '/family', token);
       assert.equal(contacts.status, 200);
       assert.equal(contacts.body.count, 2);
+
+      const patientToken = jwt.sign({ userId: patient.id }, secret);
+      const deniedLookup = await request(baseUrl, '/family/link/lookup?patient_email=daughter%40example.test', patientToken);
+      assert.equal(deniedLookup.status, 403);
+      assert.match(deniedLookup.body.error, /caregiver account/i);
+
+      const lookupResponse = await request(baseUrl, '/family/link/lookup?patient_email=%20DAUGHTER%40EXAMPLE.TEST%20', token);
+      assert.equal(lookupResponse.status, 200);
+      assert.deepEqual(lookupResponse.body.patient, { email: 'daughter@example.test', name: 'Daughter' });
+
+      const selfLookupResponse = await request(baseUrl, '/family/link/lookup?patient_email=CAREGIVER%40EXAMPLE.TEST', token);
+      assert.equal(selfLookupResponse.status, 400);
+      assert.match(selfLookupResponse.body.error, /patient’s registered email/i);
+
+      const selfLinkResponse = await fetch(`${baseUrl}/family/link/link`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_email: 'CAREGIVER@EXAMPLE.TEST', relationship: 'Daughter' }),
+      });
+      const selfLinkBody = await selfLinkResponse.json();
+      assert.equal(selfLinkResponse.status, 400);
+      assert.match(selfLinkBody.error, /patient’s registered email/i);
 
       const linkResponse = await fetch(`${baseUrl}/family/link/link`, {
         method: 'POST',

@@ -12,6 +12,7 @@ router.post('/register', async (req, res) => {
   const emailInput = typeof req.body.email === 'string' ? req.body.email : '';
   const email = emailInput.trim().toLowerCase();
   const { password, full_name } = req.body;
+  const role = req.body.role === 'caregiver' ? 'caregiver' : 'patient';
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -38,15 +39,16 @@ router.post('/register', async (req, res) => {
 
     const user = await new Promise((resolve, reject) => {
       db.run(
-        `INSERT INTO users (email, password_hash, name, updated_at)
-         VALUES (?, ?, ?, datetime('now'))`,
-        [email, password_hash, full_name || null],
+        `INSERT INTO users (email, password_hash, name, role, updated_at)
+         VALUES (?, ?, ?, ?, datetime('now'))`,
+        [email, password_hash, full_name || null, role],
         function(err) {
           if (err) return reject(err);
           resolve({
             id: this.lastID,
             email,
             name: full_name || '',
+            role,
           });
         }
       );
@@ -112,7 +114,8 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.name
+        full_name: user.name,
+        role: user.role || 'patient'
       }
     });
   } catch (err) {
@@ -135,7 +138,7 @@ router.get('/me', async (req, res) => {
     const db = getDb();
     const user = await new Promise((resolve, reject) => {
       db.get(
-        'SELECT id, email, name, phone, created_at FROM users WHERE id = ?',
+        'SELECT id, email, name, role, phone, created_at FROM users WHERE id = ?',
         [decoded.userId],
         (err, row) => {
           if (err) reject(err);

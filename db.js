@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = process.env.AGECARE_DB_PATH || path.join(__dirname, 'agecare.db');
+const configuredDbPath = process.env.AGECARE_DB_PATH || process.env.DB_PATH;
+const DB_PATH = configuredDbPath || path.join(__dirname, 'agecare.db');
 let db = null;
 
 function initDb() {
@@ -52,4 +53,12 @@ function closeDb() {
   }
 }
 
-module.exports = { initDb, getDb, closeDb };
+function getDatabaseStatus() {
+  return {
+    driver: 'sqlite',
+    persistentStorageConfigured: Boolean(configuredDbPath),
+    configuredPath: Boolean(configuredDbPath),
+  };
+}
+
+module.exports = { initDb, getDb, closeDb, getDatabaseStatus };

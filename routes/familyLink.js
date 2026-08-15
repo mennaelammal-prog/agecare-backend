@@ -3,6 +3,38 @@ const router = express.Router();
 const { getDb } = require("../db");
 const { authMiddleware } = require("../middleware/auth");
 
+// GET /api/family/link/lookup?patient_email=... - Confirm the registered patient identity before linking
+router.get("/lookup", authMiddleware, async (req, res) => {
+  const patientEmailInput = typeof req.query.patient_email === 'string' ? req.query.patient_email : '';
+  const patient_email = patientEmailInput.trim().toLowerCase();
+  if (!patient_email) return res.status(400).json({ error: "Patient email is required" });
+
+  try {
+    const db = getDb();
+    const caregiver = await new Promise(function(resolve, reject) {
+      db.get("SELECT role FROM users WHERE id = ?", [req.userId], function(err, row) {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!caregiver || caregiver.role !== 'caregiver') {
+      return res.status(403).json({ error: "Only a family or caregiver account can link a patient. Create or sign in to a separate caregiver account first." });
+    }
+    const patient = await new Promise(function(resolve, reject) {
+      db.get("SELECT id, email, name FROM users WHERE LOWER(email) = LOWER(?)", [patient_email], function(err, row) {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!patient) return res.status(404).json({ error: "No registered patient account matches that email." });
+    if (patient.id === req.userId) return res.status(400).json({ error: "Use the patient’s registered email, not your own caregiver email." });
+    res.json({ success: true, patient: { email: patient.email, name: patient.name || patient.email } });
+  } catch (err) {
+    console.error("[FamilyLink] Lookup error:", err.message);
+    res.status(500).json({ error: "Failed to look up patient" });
+  }
+});
+
 // POST /api/family/link - Link to a patient by email
 router.post("/link", authMiddleware, async (req, res) => {
   const patientEmailInput = typeof req.body.patient_email === 'string' ? req.body.patient_email : '';
@@ -17,6 +49,16 @@ router.post("/link", authMiddleware, async (req, res) => {
   try {
     const db = getDb();
 
+    const caregiver = await new Promise(function(resolve, reject) {
+      db.get("SELECT role FROM users WHERE id = ?", [familyUserId], function(err, row) {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!caregiver || caregiver.role !== 'caregiver') {
+      return res.status(403).json({ error: "Only a family or caregiver account can link a patient. Create or sign in to a separate caregiver account first." });
+    }
+
     // Find patient by email
     const patient = await new Promise(function(resolve, reject) {
       db.get("SELECT id, email, name FROM users WHERE LOWER(email) = LOWER(?)", [patient_email], function(err, row) {
@@ -27,6 +69,10 @@ router.post("/link", authMiddleware, async (req, res) => {
 
     if (!patient) {
       return res.status(404).json({ error: "Patient not found. Make sure they have registered." });
+    }
+
+    if (patient.id === familyUserId) {
+      return res.status(400).json({ error: "Use the patient’s registered email, not your own caregiver email." });
     }
 
     // Check if already linked
