@@ -4,20 +4,26 @@ const { getDb } = require('../db');
 
 const MAX_RETRIES = parseInt(process.env.NOTIFY_MAX_RETRIES) || 3;
 const RETRY_DELAY = parseInt(process.env.NOTIFY_RETRY_DELAY_MS) || 5000;
+const smtpConfigured = Boolean(process.env.EMAIL_HOST && process.env.EMAIL_USER && process.env.EMAIL_PASS);
+const careAccessEmailEnabled = process.env.CARE_ACCESS_EMAIL_NOTIFICATIONS === 'true';
 
 // Email transporter
 let emailTransporter;
 try {
-  emailTransporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-  console.log('[Notify] Email transporter configured');
+  if (smtpConfigured) {
+    emailTransporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === 'true',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+    console.log('[Notify] Email transporter configured');
+  } else {
+    console.log('[Notify] Email delivery is not configured');
+  }
 } catch (err) {
   console.warn('[Notify] Email not configured:', err.message);
 }
@@ -57,14 +63,13 @@ async function queueNotification({ contactId, checkinId, type, to, subject, body
  */
 async function sendEmail({ to, subject, body, logId }) {
   if (!emailTransporter) {
-    console.log(`[Notify] Email to ${to}: ${subject}`);
-    console.log(`[Notify] Body: ${body.slice(0, 100)}...`);
-    return { success: true, fallback: true };
+    console.warn('[Notify] Email delivery skipped because SMTP is not configured');
+    return { success: false, notConfigured: true };
   }
 
   try {
     await emailTransporter.sendMail({
-      from: `"Age Care App" <${process.env.EMAIL_USER}>`,
+      from: process.env.EMAIL_FROM || `"Age Care App" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text: body,
@@ -79,12 +84,33 @@ async function sendEmail({ to, subject, body, logId }) {
       </div>`,
     });
 
-    console.log(`[Notify] Email sent to ${to}`);
+    console.log('[Notify] Email sent');
     return { success: true };
   } catch (err) {
-    console.error(`[Notify] Email failed to ${to}:`, err.message);
+    console.error('[Notify] Email failed:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+function careAccessRequestEmail() {
+  return {
+    subject: 'AgeCare care-access request',
+    body: [
+      'A family member has asked for access to your check-in history.',
+      '',
+      'Sign in to AgeCare and open Family Circle to review, approve, or decline the request.',
+      '',
+      'This email does not include any care-record details.',
+    ].join('\n'),
+  };
+}
+
+async function sendCareAccessRequestEmail({ to }) {
+  if (!careAccessEmailEnabled) {
+    return { success: false, disabled: true };
+  }
+  const { subject, body } = careAccessRequestEmail();
+  return sendEmail({ to, subject, body });
 }
 
 /**
@@ -216,4 +242,4 @@ async function notifyFamily(checkinId, userId) {
   }
 }
 
-module.exports = { notifyFamily, sendEmail, sendSMS, processNotification };
+module.exports = { notifyFamily, sendEmail, sendSMS, processNotification, careAccessRequestEmail, sendCareAccessRequestEmail };

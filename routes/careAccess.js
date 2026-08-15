@@ -1,5 +1,6 @@
 const express = require('express');
 const { auditCareAccess, getAll, getRow, requireActiveCareScope, run } = require('../services/careAccess');
+const { sendCareAccessRequestEmail } = require('../services/notification');
 
 const router = express.Router();
 const ALLOWED_SCOPES = new Set(['checkins:read']);
@@ -36,7 +37,7 @@ router.post('/requests', async (req, res) => {
 
   try {
     const db = req.app.locals.db;
-    const patient = await getRow(db, 'SELECT id FROM users WHERE lower(email) = ?', [email]);
+    const patient = await getRow(db, 'SELECT id, email FROM users WHERE lower(email) = ?', [email]);
     if (!patient || Number(patient.id) === Number(req.userId)) return genericRequestResponse(res);
 
     const existing = await getRow(db,
@@ -63,6 +64,9 @@ router.post('/requests', async (req, res) => {
       grantId = created.id;
     }
     await auditCareAccess(db, { grantId, actorUserId: req.userId, patientUserId: patient.id, action: 'grant.request', scope: scopes.join(','), outcome: 'changed' });
+    sendCareAccessRequestEmail({ to: patient.email }).catch((error) => {
+      console.error('[CareAccess] Consent request email error:', error.message);
+    });
     return genericRequestResponse(res);
   } catch (error) {
     console.error('[CareAccess] Request error:', error.message);
