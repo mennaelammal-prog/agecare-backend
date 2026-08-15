@@ -114,7 +114,42 @@ router.post("/link", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/family/linked - Get patients linked to current user
+// DELETE /api/family/link/:linkId - Remove only the caller's caregiver-to-patient relationship.
+// This never deletes either account or either person's care records.
+router.delete('/:linkId', authMiddleware, async (req, res) => {
+  const linkId = Number(req.params.linkId);
+  if (!Number.isSafeInteger(linkId) || linkId <= 0) return res.status(400).json({ error: 'Invalid patient link.' });
+
+  try {
+    const db = getDb();
+    const caregiver = await new Promise(function(resolve, reject) {
+      db.get('SELECT role FROM users WHERE id = ?', [req.userId], function(err, row) {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    if (!caregiver || caregiver.role !== 'caregiver') {
+      return res.status(403).json({ error: 'Only a family or caregiver account can remove a patient link.' });
+    }
+    const changed = await new Promise(function(resolve, reject) {
+      db.run(
+        'UPDATE family_contacts SET is_active = 0 WHERE id = ? AND user_id = ? AND linked_user_id IS NOT NULL AND is_active = 1',
+        [linkId, req.userId],
+        function(err) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        },
+      );
+    });
+    if (!changed) return res.status(404).json({ error: 'Active patient link not found.' });
+    return res.json({ success: true, message: 'The patient link has been removed.' });
+  } catch (err) {
+    console.error('[FamilyLink] Unlink error:', err.message);
+    return res.status(500).json({ error: 'Failed to remove patient link.' });
+  }
+});
+
+// GET /api/family/linked - Get active patient links for the current caregiver only.
 router.get("/linked", authMiddleware, async (req, res) => {
   const familyUserId = req.userId;
 
@@ -126,7 +161,7 @@ router.get("/linked", authMiddleware, async (req, res) => {
         "SELECT fc.id, fc.name, fc.relationship, fc.linked_user_id, u.email, u.name as patient_name " +
         "FROM family_contacts fc " +
         "LEFT JOIN users u ON fc.linked_user_id = u.id " +
-        "WHERE fc.user_id = ?",
+        "WHERE fc.user_id = ? AND fc.linked_user_id IS NOT NULL AND fc.is_active = 1",
         [familyUserId],
         function(err, rows) {
           if (err) reject(err);

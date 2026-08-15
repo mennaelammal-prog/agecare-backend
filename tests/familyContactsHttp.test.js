@@ -91,8 +91,20 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
       assert.equal(linkBody.patient.id, daughter.id);
       const linked = await request(baseUrl, '/family/link/linked', token);
       assert.equal(linked.status, 200);
-      assert.equal(linked.body.count, 3);
+      assert.equal(linked.body.count, 2);
       assert.equal(linked.body.data.some((item) => item.patient_name === 'Patient'), true);
+      assert.equal(linked.body.data.some((item) => item.name === 'Support Person'), false);
+
+      const patientLink = linked.body.data.find((item) => item.patient_name === 'Patient');
+      const unlinkResponse = await fetch(`${baseUrl}/family/link/${patientLink.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const unlinkBody = await unlinkResponse.json();
+      assert.equal(unlinkResponse.status, 200);
+      assert.equal(unlinkBody.success, true);
+
+      const linkedAfterRemoval = await request(baseUrl, '/family/link/linked', token);
+      assert.equal(linkedAfterRemoval.status, 200);
+      assert.equal(linkedAfterRemoval.body.count, 1);
+      assert.equal(linkedAfterRemoval.body.data.some((item) => item.patient_name === 'Patient'), false);
     } finally {
       await new Promise((resolve) => db.close(resolve));
     }
