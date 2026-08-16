@@ -13,11 +13,13 @@ In the Render Dashboard: **New → Web Service**, connect the `mennaelammal-prog
 | **Name** | `agecare-frontend-redesign` (or your preference) |
 | **Root Directory** | `agecare-frontend-redesign` |
 | **Runtime** | Node |
-| **Build Command** | `corepack enable && pnpm install --frozen-lockfile && pnpm run build` |
+| **Build Command** | `pnpm install --frozen-lockfile && pnpm run build` |
 | **Start Command** | `pnpm start` |
 | **Instance Type** | Free is fine to preview; the app is stateless (no database of its own) |
 
-Render reads the Node version from `.node-version` in this directory (pinned to 22) automatically — no separate setting needed.
+Don't prefix the build command with `corepack enable &&` — Render's Node build image ships `pnpm` pre-installed at `/usr/bin/pnpm`, and `corepack enable` tries to relink that same path, which fails with `EROFS: read-only file system` because that path isn't writable in the build image. `pnpm` is already on `PATH` without it.
+
+`.node-version` in this directory is pinned to 22, but in practice Render's Node-version detection did not pick it up when this directory is set as a non-root "Root Directory" — it defaulted to its current latest instead. Nothing here requires a specific Node version below that, so there's no need to fight it; if you do want the pin honored, set `NODE_VERSION` directly as an environment variable on the service instead (see Step 2).
 
 ## Step 2 — Environment variables
 
