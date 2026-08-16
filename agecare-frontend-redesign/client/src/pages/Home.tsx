@@ -512,6 +512,8 @@ export default function Home() {
                 <option value="en">{t("english")}</option>
                 <option value="ar">{t("arabic")}</option>
                 <option value="es">{t("spanish")}</option>
+                <option value="zh">{t("chinese")}</option>
+                <option value="vi">{t("vietnamese")}</option>
               </select>
             </label>
             <button type="button" className="notification-button" onClick={() => setNoticeOpen(!noticeOpen)} aria-label="Open notifications">
