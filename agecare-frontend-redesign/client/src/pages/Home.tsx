@@ -41,10 +41,20 @@ import { CareConnections } from "@/components/CareConnections";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // The original export referenced /manus-storage/... image assets (hero photo,
-// reflection photo, paper texture, logo mark) hosted on Manus's own storage --
-// none of those files were included in the project export, and there's no
-// local equivalent. All four are CSS-only replacements now: see .day-marker,
-// .hero-photo, .reflection-photo, and .agecare-app's background in index.css.
+// reflection photo, logo mark) hosted on Manus's own storage -- none of those
+// files were included in the project export, and there was no local
+// equivalent (see the CSS-only gradient fallbacks still on .hero-photo,
+// .reflection-photo, and .agecare-app's background in index.css, used if
+// these fail to load). These three are AI-generated replacements matching
+// the Heirloom Journal brief, hosted on Higgsfield's CDN rather than
+// self-hosted in this repo -- the environment that generated them can't
+// reach the same network its own build/deploy tooling can, so the bytes
+// couldn't be downloaded into a local asset file. Worth migrating to a
+// self-hosted copy (client/public/images/) if that CDN link ever becomes
+// unreliable.
+const heroImage = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234001_c8e00203-b231-4380-9e64-3baa09a6bc52.png";
+const reflectionImage = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234004_3aa25f87-6924-4db9-9e47-3955712e8c7e.png";
+const logo = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234006_ee34f997-3b42-42ee-88b5-f090ae76a6af.png";
 
 const navGroups = [
   {
@@ -413,7 +423,7 @@ export default function Home() {
     <div className="agecare-app">
       <aside className="sidebar" aria-label={t("primaryNavigation")}>
         <div className="brand-lockup">
-          <span className="brand-mark day-marker" role="img" aria-label="AgeCare" />
+          <img src={logo} alt="AgeCare" className="brand-mark" />
           <div>
             <span className="brand-name">AgeCare</span>
             <span className="brand-tagline">{t("dailyCompanion")}</span>
@@ -464,7 +474,7 @@ export default function Home() {
 
       <header className="mobile-bar">
         <div className="brand-lockup">
-          <span className="brand-mark day-marker" role="img" aria-label="AgeCare" />
+          <img src={logo} alt="AgeCare" className="brand-mark" />
           <span className="brand-name">AgeCare</span>
         </div>
         <button className="icon-button" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open navigation">
@@ -659,7 +669,7 @@ function TodayView({
           </div>
         </div>
         <div className="hero-photo-wrap">
-          <div className="hero-photo" role="img" aria-label="A calm desk with a wellness journal, tea, and botanical stem" />
+          <img src={heroImage} alt="A calm desk with a wellness journal, tea, and botanical stem" className="hero-photo" />
           <span className="photo-caption">A little room to breathe</span>
         </div>
       </section>
@@ -733,7 +743,7 @@ function TodayView({
 
         <aside className="reflection-column" aria-label="Reflection and care notes">
           <section className="reflection-card">
-            <div className="reflection-photo" role="img" aria-label="A quiet chair beside a window with a poetry journal" />
+            <div className="reflection-photo"><img src={reflectionImage} alt="A quiet chair beside a window with a poetry journal" /></div>
             <div className="reflection-content">
               <div className="reflection-topline"><span><BookHeart size={16} /> Wisdom for the day</span><span className="reflection-count">0{reflectionIndex + 1} / 0{reflections.length}</span></div>
               <p className="reflection-theme">{reflection.theme}</p>
