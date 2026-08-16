@@ -58,7 +58,13 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
   display: grid;
   grid-template-columns: 278px minmax(0, 1fr);
   background-color: var(--paper-deep);
-  background-image: linear-gradient(rgba(245, 240, 230, .89), rgba(245, 240, 230, .89)), var(--paper-image);
+  /* CSS-only parchment texture: two faint radial fibers plus a warm vignette,
+     no external image. Replaces a --paper-image custom property that used to
+     point at a Manus-hosted asset with no local equivalent. */
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(190, 123, 76, .05), transparent 42%),
+    radial-gradient(circle at 88% 92%, rgba(47, 107, 99, .06), transparent 46%),
+    repeating-linear-gradient(115deg, rgba(31, 41, 40, .015) 0 2px, transparent 2px 5px);
   background-size: cover;
   color: var(--ink);
 }
@@ -76,6 +82,17 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 }
 .brand-lockup { display: flex; align-items: center; gap: 11px; }
 .brand-mark { width: 42px; height: 42px; object-fit: contain; flex: 0 0 auto; }
+/* CSS-only "day marker" logo: a circular mark with a verdigris ring and a
+   copper arc, standing in for the brief's text-free circular day-marker
+   image (no local asset for the original Manus-hosted logo file). */
+.day-marker {
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background:
+    conic-gradient(from -40deg, var(--copper) 0deg 55deg, transparent 55deg 360deg),
+    radial-gradient(circle at 34% 30%, #fffdf8 0 18%, transparent 19%),
+    radial-gradient(circle, var(--verdigris) 62%, var(--verdigris-deep) 100%);
+}
 .brand-name { display: block; color: var(--ink); font-family: "DM Serif Display", serif; font-size: 25px; line-height: 1; letter-spacing: -.03em; }
 .brand-tagline { display: block; margin-top: 5px; color: var(--muted-ink); font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
 .nav-stack { margin-top: 45px; display: grid; gap: 26px; }
@@ -128,7 +145,15 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .text-action { display: inline-flex; align-items: center; min-height: 38px; padding: 0; border: 0; color: var(--verdigris-deep); background: transparent; font-size: 12px; font-weight: 800; text-decoration: underline; text-decoration-color: rgba(47, 107, 99, .33); text-underline-offset: 4px; }
 .text-action:hover { color: var(--copper); text-decoration-color: currentColor; }
 .hero-photo-wrap { position: relative; min-height: 260px; }
-.hero-photo { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 58% center; filter: saturate(.87) contrast(.98); }
+/* CSS-only stand-in for a hero photograph -- no local asset exists for the
+   original Manus-hosted image (see .day-marker above for the same gap). */
+.hero-photo {
+  width: 100%; height: 100%; display: block;
+  background:
+    radial-gradient(circle at 70% 24%, rgba(255, 253, 248, .55), transparent 40%),
+    radial-gradient(circle at 22% 78%, rgba(190, 123, 76, .28), transparent 46%),
+    linear-gradient(155deg, var(--verdigris-pale) 0%, var(--paper-deep) 55%, var(--copper-pale) 100%);
+}
 .photo-caption { position: absolute; right: 18px; bottom: 16px; padding: 7px 10px; color: #fffdf8; background: rgba(31, 41, 40, .66); font-size: 10px; font-style: italic; letter-spacing: .02em; backdrop-filter: blur(5px); }
 
 .today-columns { display: grid; grid-template-columns: minmax(0, 1.44fr) minmax(280px, .66fr); gap: 30px; align-items: start; }
@@ -159,7 +184,15 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .plan-icon.copper { color: #945a32; background: var(--copper-pale); }.plan-icon.green { color: var(--verdigris-deep); background: var(--verdigris-pale); }.plan-icon.ink { color: var(--ink); background: #e9ecea; }
 .plan-body strong, .plan-body small { display: block; }.plan-body strong { color: var(--ink); font-size: 12px; }.plan-body small { margin-top: 4px; color: var(--muted-ink); font-size: 11px; line-height: 1.35; }
 .reflection-column { display: grid; gap: 19px; }
-.reflection-card { overflow: hidden; border-radius: 14px; }.reflection-photo { height: 164px; background: #d9d0c1; }.reflection-photo img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 60%; filter: saturate(.80); }.reflection-content { padding: 21px; }.reflection-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--verdigris-deep); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }.reflection-topline > span:first-child { display: flex; align-items: center; gap: 5px; }.reflection-count { color: #8a938d; font-size: 9px; }.reflection-theme { margin: 23px 0 0; color: var(--copper); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.reflection-content blockquote { margin: 8px 0 0; color: var(--ink); font-family: "DM Serif Display", serif; font-size: clamp(23px, 2.2vw, 30px); font-weight: 400; letter-spacing: -.025em; line-height: 1.14; }.attribution { margin: 14px 0 0; color: #7a817d; font-size: 10px; font-style: italic; }.reflection-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e8e0d4; }.pager, .utility-actions { display: flex; gap: 5px; }.reflection-actions .icon-button { width: 33px; height: 33px; }.save-button { display: inline-flex; align-items: center; gap: 5px; min-height: 33px; padding: 0 9px; border: 1px solid #d5e2dc; border-radius: 17px; color: var(--verdigris-deep); background: #f4f8f6; font-size: 10px; font-weight: 800; }.save-button.is-saved { color: #fffdf8; border-color: var(--verdigris); background: var(--verdigris); }
+.reflection-card { overflow: hidden; border-radius: 14px; }
+/* CSS-only stand-in for a reflection photograph -- same gap as .hero-photo. */
+.reflection-photo {
+  height: 164px;
+  background:
+    radial-gradient(circle at 78% 30%, rgba(255, 253, 248, .5), transparent 38%),
+    linear-gradient(200deg, var(--copper-pale) 0%, #d9d0c1 55%, var(--verdigris-pale) 100%);
+}
+.reflection-content { padding: 21px; }.reflection-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--verdigris-deep); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }.reflection-topline > span:first-child { display: flex; align-items: center; gap: 5px; }.reflection-count { color: #8a938d; font-size: 9px; }.reflection-theme { margin: 23px 0 0; color: var(--copper); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }.reflection-content blockquote { margin: 8px 0 0; color: var(--ink); font-family: "DM Serif Display", serif; font-size: clamp(23px, 2.2vw, 30px); font-weight: 400; letter-spacing: -.025em; line-height: 1.14; }.attribution { margin: 14px 0 0; color: #7a817d; font-size: 10px; font-style: italic; }.reflection-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 14px; border-top: 1px solid #e8e0d4; }.pager, .utility-actions { display: flex; gap: 5px; }.reflection-actions .icon-button { width: 33px; height: 33px; }.save-button { display: inline-flex; align-items: center; gap: 5px; min-height: 33px; padding: 0 9px; border: 1px solid #d5e2dc; border-radius: 17px; color: var(--verdigris-deep); background: #f4f8f6; font-size: 10px; font-weight: 800; }.save-button.is-saved { color: #fffdf8; border-color: var(--verdigris); background: var(--verdigris); }
 .support-note { display: flex; gap: 12px; padding: 18px; border-radius: 13px; }.support-note h3 { margin-top: 6px; font-size: 19px; line-height: 1.15; }.support-note .text-action { margin-top: 11px; min-height: 24px; font-size: 11px; }
 
 .module-view { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr); min-height: 468px; overflow: hidden; border: 1px solid rgba(137, 114, 77, .2); border-radius: 16px; background: rgba(255, 253, 248, .78); box-shadow: var(--shadow-soft); }.module-intro { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: clamp(30px, 5vw, 72px); }.module-intro h2 { max-width: 560px; font-size: clamp(35px, 4vw, 54px); }.module-intro .primary-action { margin-top: 28px; }.module-stage { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; margin: 22px 22px 22px 0; padding: clamp(28px, 4vw, 56px); border-radius: 13px; background: linear-gradient(140deg, #eaf1ed, #f8f4ec); }.stage-rule { position: absolute; top: 0; right: 23px; bottom: 0; width: 1px; background: repeating-linear-gradient(to bottom, rgba(190,123,76,.52) 0 4px, transparent 4px 9px); }.module-stage h3 { max-width: 430px; margin-top: 18px; font-size: 31px; }.module-stage p { max-width: 430px; margin: 14px 0 0; color: #59645f; font-size: 13px; line-height: 1.7; }.compact-moods { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 22px; }.compact-moods button { display: inline-flex; align-items: center; gap: 5px; min-height: 37px; padding: 0 11px; border: 1px solid #d4dfda; border-radius: 19px; color: #5d6a65; background: #fffdf8; font-size: 10px; font-weight: 800; }.compact-moods button.is-selected { color: #fffdf8; border-color: var(--verdigris); background: var(--verdigris); }

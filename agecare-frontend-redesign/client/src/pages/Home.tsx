@@ -40,10 +40,11 @@ import { ChatModule, HistoryModule, LegacyLoginModal, LiveCheckin, ResourceModul
 import { CareConnections } from "@/components/CareConnections";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-const heroImage = "/manus-storage/agecare-hero-journal_afe7065b.jpg";
-const reflectionImage = "/manus-storage/agecare-reflection-window_485bfe76.jpg";
-const paperTexture = "/manus-storage/agecare-botanical-paper_ac1f09f8.jpg";
-const logo = "/manus-storage/agecare-day-marker-logo_44d6b8e0.png";
+// The original export referenced /manus-storage/... image assets (hero photo,
+// reflection photo, paper texture, logo mark) hosted on Manus's own storage --
+// none of those files were included in the project export, and there's no
+// local equivalent. All four are CSS-only replacements now: see .day-marker,
+// .hero-photo, .reflection-photo, and .agecare-app's background in index.css.
 
 const navGroups = [
   {
@@ -397,10 +398,10 @@ export default function Home() {
   }
 
   return (
-    <div className="agecare-app" style={{ "--paper-image": `url(${paperTexture})` } as React.CSSProperties}>
+    <div className="agecare-app">
       <aside className="sidebar" aria-label={t("primaryNavigation")}>
         <div className="brand-lockup">
-          <img src={logo} alt="AgeCare" className="brand-mark" />
+          <span className="brand-mark day-marker" role="img" aria-label="AgeCare" />
           <div>
             <span className="brand-name">AgeCare</span>
             <span className="brand-tagline">{t("dailyCompanion")}</span>
@@ -451,7 +452,7 @@ export default function Home() {
 
       <header className="mobile-bar">
         <div className="brand-lockup">
-          <img src={logo} alt="AgeCare" className="brand-mark" />
+          <span className="brand-mark day-marker" role="img" aria-label="AgeCare" />
           <span className="brand-name">AgeCare</span>
         </div>
         <button className="icon-button" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open navigation">
@@ -472,7 +473,20 @@ export default function Home() {
         </nav>
       )}
 
-      <main className="content-shell">
+      {/*
+        dir="ltr" is pinned here deliberately. Only the nav/account chrome
+        (sidebar, login modal, language picker) is actually translated via
+        t() -- everything rendered inside <main> (TodayView, check-in,
+        history, Care Connections, medications/appointments/vitals, chat)
+        is still hardcoded English. Without this, switching to Arabic
+        applies the browser's RTL bidi algorithm to that English text and
+        garbles punctuation/word order (e.g. a trailing "." moves to the
+        front of the sentence). This keeps that content readable until it's
+        actually translated -- it does not translate it. The sidebar's RTL
+        mirroring (index.css, :root[dir="rtl"] rules) is unaffected since
+        those rules key off the <html> element's dir, not this one.
+      */}
+      <main className="content-shell" dir="ltr">
         <div className="topline">
           <div>
             <p className="eyebrow"><Sun size={15} /> Friday, August 14</p>
@@ -631,7 +645,7 @@ function TodayView({
           </div>
         </div>
         <div className="hero-photo-wrap">
-          <img src={heroImage} alt="A calm desk with a wellness journal, tea, and botanical stem" className="hero-photo" />
+          <div className="hero-photo" role="img" aria-label="A calm desk with a wellness journal, tea, and botanical stem" />
           <span className="photo-caption">A little room to breathe</span>
         </div>
       </section>
@@ -705,7 +719,7 @@ function TodayView({
 
         <aside className="reflection-column" aria-label="Reflection and care notes">
           <section className="reflection-card">
-            <div className="reflection-photo"><img src={reflectionImage} alt="A quiet chair beside a window with a poetry journal" /></div>
+            <div className="reflection-photo" role="img" aria-label="A quiet chair beside a window with a poetry journal" />
             <div className="reflection-content">
               <div className="reflection-topline"><span><BookHeart size={16} /> Wisdom for the day</span><span className="reflection-count">0{reflectionIndex + 1} / 0{reflections.length}</span></div>
               <p className="reflection-theme">{reflection.theme}</p>
