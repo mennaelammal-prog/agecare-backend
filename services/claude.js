@@ -187,7 +187,10 @@ async function askClaude({ messages, system, maxTokens = 1024, temperature = 0.7
   }
 
   const payload = {
-    model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+    // claude-3-5-sonnet-20241022 has been retired -- confirmed in production
+    // logs, Anthropic's API now returns 404 for it. claude-sonnet-5 is the
+    // current model in this line as of this fix.
+    model: process.env.CLAUDE_MODEL || 'claude-sonnet-5',
     max_tokens: maxTokens,
     temperature,
     messages,
