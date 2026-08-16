@@ -73,6 +73,12 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
   position: sticky;
   top: 0;
   height: 100vh;
+  /* Nav items + profile chip + account/sign-in links can exceed the
+     viewport height (a browser with visible toolbars, a shorter window, or
+     just more nav groups than fit) -- without this, the sidebar-foot
+     controls (account connection, disconnect/sign in) get clipped outside
+     the visible area entirely, with no way to scroll to or click them. */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 30px 18px 20px;
