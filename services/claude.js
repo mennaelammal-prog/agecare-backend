@@ -192,7 +192,10 @@ async function askClaude({ messages, system, maxTokens = 1024, temperature = 0.7
     // current model in this line as of this fix.
     model: process.env.CLAUDE_MODEL || 'claude-sonnet-5',
     max_tokens: maxTokens,
-    temperature,
+    // temperature deliberately omitted: also confirmed in production logs,
+    // the API rejects it outright for this model ("`temperature` is
+    // deprecated for this model", 400). The temperature parameter/default
+    // is kept on this function's signature for callers, just not forwarded.
     messages,
   };
   if (system) payload.system = system;
