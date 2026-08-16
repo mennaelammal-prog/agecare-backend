@@ -146,6 +146,18 @@ const moodOptions = [
   { label: "Energized", icon: "◉" },
 ];
 
+// Both the topline "Friday, August 14" and the "AUG / 14" date-stamp badge
+// were hardcoded literal strings -- never actually computed from the real
+// date, so they always showed the same fixed day regardless of when the
+// page was opened. These read the browser's current local date instead.
+function formatTodayLong(date = new Date()): string {
+  return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+
+function formatDateStamp(date = new Date()): { month: string; day: number } {
+  return { month: date.toLocaleDateString(undefined, { month: "short" }).toUpperCase(), day: date.getDate() };
+}
+
 export default function Home() {
   const { language, setLanguage, t } = useLanguage();
   const initialAuthMode = new URLSearchParams(window.location.search).get("auth") === "register" ? "register" : "sign-in";
@@ -489,7 +501,7 @@ export default function Home() {
       <main className="content-shell" dir="ltr">
         <div className="topline">
           <div>
-            <p className="eyebrow"><Sun size={15} /> Friday, August 14</p>
+            <p className="eyebrow"><Sun size={15} /> {formatTodayLong()}</p>
             <h1>{active === "today" ? "A clear view of today." : activeItem?.label}</h1>
           </div>
           <div className="top-actions">
@@ -657,7 +669,7 @@ function TodayView({
               <p className="eyebrow">Your next small step</p>
               <h2>Check in with yourself.</h2>
             </div>
-            <span className="date-stamp">AUG<br />14</span>
+            <span className="date-stamp">{formatDateStamp().month}<br />{formatDateStamp().day}</span>
           </section>
 
           <section className="checkin-card" aria-labelledby="mood-title">
