@@ -1,4 +1,3 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const { PostgresCompatDatabase } = require('./database/postgresAdapter');
@@ -18,6 +17,13 @@ function initDb() {
     return db;
   }
 
+  // Required lazily, only on this SQLite path: this native module must never
+  // be touched in Postgres-mode production. A broken/incompatible prebuilt
+  // binary (e.g. a GLIBC version mismatch against the host) crashes the
+  // whole process at require() time -- before usePostgres is even checked --
+  // which is exactly what happened in production after a routine dependency
+  // bump, on a service that doesn't use SQLite at all.
+  const sqlite3 = require('sqlite3').verbose();
   db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) {
       console.error('[DB] Failed to connect:', err.message);
