@@ -19,7 +19,6 @@ import {
   HeartHandshake,
   History,
   House,
-  Link2,
   LogOut,
   Menu,
   MessageCircle,
@@ -37,8 +36,8 @@ import {
 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { ChatModule, HistoryModule, LegacyLoginModal, LinkPatientModule, LiveCheckin, ResourceModule } from "@/components/LegacyCareModules";
-import { FamilyManager } from "@/components/FamilyManager";
+import { ChatModule, HistoryModule, LegacyLoginModal, LiveCheckin, ResourceModule } from "@/components/LegacyCareModules";
+import { CareConnections } from "@/components/CareConnections";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const heroImage = "/manus-storage/agecare-hero-journal_afe7065b.jpg";
@@ -64,8 +63,7 @@ const navGroups = [
   {
     label: "Together",
     items: [
-      { id: "family", label: "Family circle", icon: UsersRound },
-      { id: "link", label: "Link a patient", icon: Link2 },
+      { id: "connections", label: "Care Connections", icon: UsersRound },
       { id: "history", label: "Care history", icon: History },
     ],
   },
@@ -130,20 +128,6 @@ const moduleCopy: Record<
     action: "Open care chat",
     detail: "In a connected version, this area can retain your message history and route urgent concerns to the right support channel.",
   },
-  family: {
-    eyebrow: "Shared with care",
-    title: "Keep your circle close, on your terms.",
-    copy: "Invite a trusted person to stay connected to the parts of your care you choose to share.",
-    action: "Invite someone",
-    detail: "Family participation should be clear, consent-based, and easy to adjust at any time.",
-  },
-  link: {
-    eyebrow: "Connected care",
-    title: "Link a patient thoughtfully.",
-    copy: "Use a simple invitation flow to connect a care recipient and caregiver while keeping permissions visible.",
-    action: "Create a link",
-    detail: "A connected implementation should confirm identity and explain exactly what each person can see before linking.",
-  },
   history: {
     eyebrow: "Your record over time",
     title: "Find the pattern, not just the number.",
@@ -176,6 +160,8 @@ export default function Home() {
   const [loginOpen, setLoginOpen] = useState(() => new URLSearchParams(window.location.search).has("auth"));
   const [accountMode, setAccountMode] = useState<"sign-in" | "register">(initialAuthMode);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [expandedGrantId, setExpandedGrantId] = useState<number | null>(null);
+  const [actionPendingId, setActionPendingId] = useState<number | null>(null);
   const legacyUtils = trpc.useUtils();
   const legacyInput = { token: legacyToken || "not-connected" };
   const historyQuery = trpc.legacy.history.useQuery({ ...legacyInput, limit: 30 }, { enabled: Boolean(legacyToken), retry: false });
@@ -184,6 +170,13 @@ export default function Home() {
   const medicationsQuery = trpc.legacy.medications.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "medications", retry: false });
   const appointmentsQuery = trpc.legacy.appointments.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "appointments", retry: false });
   const vitalsQuery = trpc.legacy.vitals.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "vitals", retry: false });
+  const incomingRequestsQuery = trpc.legacy.careAccess.incomingRequests.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "connections", retry: false });
+  const patientGrantsQuery = trpc.legacy.careAccess.patientGrants.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "connections", retry: false });
+  const myGrantsQuery = trpc.legacy.careAccess.myGrants.useQuery(legacyInput, { enabled: Boolean(legacyToken) && active === "connections", retry: false });
+  const sharedHistoryQuery = trpc.legacy.careAccess.sharedHistory.useQuery(
+    { ...legacyInput, grantId: expandedGrantId ?? 0, limit: 30 },
+    { enabled: Boolean(legacyToken) && expandedGrantId !== null, retry: false },
+  );
   function connectLegacyAccount(result: { token: string; user?: unknown }, message: string) {
     const user = result.user as { name?: string; full_name?: string; email?: string } | undefined;
     const name = user?.name || user?.full_name || user?.email || "Your AgeCare account";
@@ -223,10 +216,13 @@ export default function Home() {
   const recordMutation = trpc.legacy.saveRecord.useMutation();
   const deleteRecordMutation = trpc.legacy.deleteRecord.useMutation();
   const chatMutation = trpc.legacy.chat.useMutation();
+  const requestAccessMutation = trpc.legacy.careAccess.requestAccess.useMutation();
+  const approveMutation = trpc.legacy.careAccess.approveRequest.useMutation();
+  const revokeMutation = trpc.legacy.careAccess.revokeGrant.useMutation();
   const localizedNavGroups = [
     { label: t("today"), items: [{ id: "today", label: t("dayAtAGlance"), icon: House }] },
     { label: t("myCare"), items: [{ id: "check-in", label: t("dailyCheckin"), icon: ClipboardCheck }, { id: "medications", label: t("medications"), icon: Pill }, { id: "appointments", label: t("appointments"), icon: CalendarDays }, { id: "vitals", label: t("vitalSigns"), icon: Activity }, { id: "chat", label: t("careChat"), icon: MessageCircle }] },
-    { label: t("together"), items: [{ id: "family", label: t("familyCircle"), icon: UsersRound }, { id: "link", label: t("linkPatient"), icon: Link2 }, { id: "history", label: t("careHistory"), icon: History }] },
+    { label: t("together"), items: [{ id: "connections", label: t("careConnections"), icon: UsersRound }, { id: "history", label: t("careHistory"), icon: History }] },
   ];
 
   const activeItem = localizedNavGroups
@@ -330,6 +326,60 @@ export default function Home() {
       toast(error instanceof Error ? error.message : "We could not remove this family contact.");
       return false;
     }
+  }
+
+  // "Connect with someone" performs two independent actions: add them as a
+  // contact, and ask for permission to view their care history. Either can
+  // fail without blocking the other -- a failed link (e.g. already linked)
+  // should not stop the access request from going out.
+  async function connectWithPatient(patientEmail: string, relationship: string) {
+    let linkOk = true;
+    try {
+      await linkMutation.mutateAsync({ ...legacyInput, patientEmail, relationship });
+    } catch {
+      linkOk = false;
+    }
+    try {
+      await requestAccessMutation.mutateAsync({ ...legacyInput, patientEmail, relationship });
+      await legacyUtils.legacy.careAccess.myGrants.invalidate();
+      toast(linkOk ? "Contact added, and a care-access request has been sent." : "A care-access request has been sent.");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "We could not send that care-access request.");
+    }
+  }
+
+  async function approveRequest(grantId: number, days: 1 | 7 | 30 | 90) {
+    setActionPendingId(grantId);
+    try {
+      await approveMutation.mutateAsync({ ...legacyInput, grantId, expiresInDays: days });
+      await legacyUtils.legacy.careAccess.incomingRequests.invalidate();
+      await legacyUtils.legacy.careAccess.patientGrants.invalidate();
+      toast("Access approved.");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "We could not approve that request.");
+    } finally {
+      setActionPendingId(null);
+    }
+  }
+
+  // Declines a pending request or ends an active grant -- the backend uses
+  // the same endpoint for both.
+  async function declineOrRevokeGrant(grantId: number) {
+    setActionPendingId(grantId);
+    try {
+      await revokeMutation.mutateAsync({ ...legacyInput, grantId });
+      await legacyUtils.legacy.careAccess.incomingRequests.invalidate();
+      await legacyUtils.legacy.careAccess.patientGrants.invalidate();
+      toast("Access removed.");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "We could not update that request.");
+    } finally {
+      setActionPendingId(null);
+    }
+  }
+
+  function toggleSharedHistory(grantId: number) {
+    setExpandedGrantId((current) => (current === grantId ? null : grantId));
   }
 
   function changeReflection(direction: number) {
@@ -487,28 +537,36 @@ export default function Home() {
             error={historyQuery.error?.message}
             onConnect={() => setLoginOpen(true)}
           />
-        ) : active === "family" ? (
-          <FamilyManager
+        ) : active === "connections" ? (
+          <CareConnections
             connected={Boolean(legacyToken)}
+            onConnect={() => setLoginOpen(true)}
             contacts={contactsQuery.data?.data ?? []}
-            patients={patientsQuery.data?.data ?? []}
-            loading={contactsQuery.isLoading || patientsQuery.isLoading}
-            error={contactsQuery.error?.message || patientsQuery.error?.message}
-            saving={familyContactMutation.isPending}
-            deleting={deleteFamilyContactMutation.isPending}
-            onConnect={() => setLoginOpen(true)}
-            onLink={() => selectNav("link")}
-            onAdd={addFamilyContact}
-            onDelete={removeFamilyContact}
-          />
-        ) : active === "link" ? (
-          <LinkPatientModule
-            connected={Boolean(legacyToken)}
-            patients={patientsQuery.data?.data ?? []}
-            isSaving={linkMutation.isPending}
-            error={patientsQuery.error?.message}
-            onConnect={() => setLoginOpen(true)}
-            onLink={(patientEmail, relationship) => linkMutation.mutate({ ...legacyInput, patientEmail, relationship })}
+            contactsLoading={contactsQuery.isLoading}
+            contactsError={contactsQuery.error?.message}
+            savingContact={familyContactMutation.isPending}
+            deletingContact={deleteFamilyContactMutation.isPending}
+            onAddContact={addFamilyContact}
+            onDeleteContact={removeFamilyContact}
+            incomingRequests={incomingRequestsQuery.data?.data ?? []}
+            incomingLoading={incomingRequestsQuery.isLoading}
+            incomingError={incomingRequestsQuery.error?.message}
+            patientGrants={patientGrantsQuery.data?.data ?? []}
+            patientGrantsLoading={patientGrantsQuery.isLoading}
+            patientGrantsError={patientGrantsQuery.error?.message}
+            myGrants={myGrantsQuery.data?.data ?? []}
+            myGrantsLoading={myGrantsQuery.isLoading}
+            myGrantsError={myGrantsQuery.error?.message}
+            requesting={linkMutation.isPending || requestAccessMutation.isPending}
+            actionPendingId={actionPendingId}
+            onConnectWithPatient={connectWithPatient}
+            onApprove={approveRequest}
+            onDecline={declineOrRevokeGrant}
+            expandedGrantId={expandedGrantId}
+            onToggleHistory={toggleSharedHistory}
+            sharedHistoryEntries={sharedHistoryQuery.data?.data ?? []}
+            sharedHistoryLoading={sharedHistoryQuery.isLoading}
+            sharedHistoryError={sharedHistoryQuery.error?.message}
           />
         ) : active === "medications" ? (
           <ResourceModule connected={Boolean(legacyToken)} resource="medications" records={medicationsQuery.data?.data ?? []} loading={medicationsQuery.isLoading} error={medicationsQuery.error?.message} saving={recordMutation.isPending} deleting={deleteRecordMutation.isPending} onConnect={() => setLoginOpen(true)} onSave={saveResource} onDelete={deleteResource} />
@@ -668,7 +726,7 @@ function TodayView({
 
           <section className="support-note">
             <span className="section-icon"><UserRound size={19} /></span>
-            <div><p className="eyebrow">Your circle</p><h3>Care works better when it is shared with clarity.</h3><button type="button" className="text-action" onClick={() => onNavigate("family")}>Manage family circle</button></div>
+            <div><p className="eyebrow">Your circle</p><h3>Care works better when it is shared with clarity.</h3><button type="button" className="text-action" onClick={() => onNavigate("connections")}>Manage care connections</button></div>
           </section>
         </aside>
       </div>

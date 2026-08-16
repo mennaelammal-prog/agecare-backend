@@ -7,6 +7,7 @@ import { legacyRequest } from "./legacyApi";
 
 const tokenInput = z.object({ token: z.string().min(1, "Please sign in to your AgeCare account first.") });
 const editableResource = z.enum(["medications", "appointments", "vitals"]);
+const consentDuration = z.union([z.literal(1), z.literal(7), z.literal(30), z.literal(90)]);
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -126,6 +127,58 @@ export const appRouter = router({
         token: input.token,
         body: { message: input.message, history: input.history },
       })),
+    // Consent-based shared-history access. Proxies the backend's
+    // /api/care-access/* routes (routes/careAccess.js) -- a scoped, expiring,
+    // auditable grant flow that is entirely separate from the plain address-book
+    // links under legacy.linkPatient above. See CareConnections.tsx, which
+    // presents both concepts as one guided "connect with someone" flow.
+    careAccess: router({
+      // Fired by a caregiver: asks a patient (by their registered email) for
+      // permission to view their check-in history. Creates or refreshes a
+      // 'pending' grant on the backend -- it does not grant access by itself.
+      requestAccess: publicProcedure
+        .input(tokenInput.extend({ patientEmail: z.string().email(), relationship: z.string().trim().max(80).optional() }))
+        .mutation(({ input }) => legacyRequest<{ success: boolean; message: string }>("/care-access/requests", {
+          method: "POST",
+          token: input.token,
+          body: { patient_email: input.patientEmail, relationship: input.relationship || "Family" },
+        })),
+      // Patient-side: requests other people have sent that are still awaiting
+      // a decision.
+      incomingRequests: publicProcedure
+        .input(tokenInput)
+        .query(({ input }) => legacyRequest<{ success: boolean; count: number; data: unknown[] }>("/care-access/incoming", { token: input.token })),
+      // Patient-side: approves a pending request for a chosen number of days.
+      // The backend only allows the patient the grant belongs to to do this.
+      approveRequest: publicProcedure
+        .input(tokenInput.extend({ grantId: z.number().int().positive(), expiresInDays: consentDuration }))
+        .mutation(({ input }) => legacyRequest("/care-access/" + input.grantId + "/approve", {
+          method: "POST",
+          token: input.token,
+          body: { scopes: ["checkins:read"], expires_in_days: input.expiresInDays },
+        })),
+      // Patient-side: declines a pending request, or ends an active grant.
+      // Same backend endpoint does both -- it accepts 'pending' or 'active'.
+      revokeGrant: publicProcedure
+        .input(tokenInput.extend({ grantId: z.number().int().positive() }))
+        .mutation(({ input }) => legacyRequest("/care-access/" + input.grantId + "/revoke", { method: "POST", token: input.token })),
+      // Patient-side: everyone currently holding active access to your history.
+      patientGrants: publicProcedure
+        .input(tokenInput)
+        .query(({ input }) => legacyRequest<{ success: boolean; count: number; data: unknown[] }>("/care-access/patient-grants", { token: input.token })),
+      // Caregiver-side: the patients who have approved you, with each grant's
+      // expiry -- this is what unlocks "View shared history" below.
+      myGrants: publicProcedure
+        .input(tokenInput)
+        .query(({ input }) => legacyRequest<{ success: boolean; count: number; data: unknown[] }>("/care-access/grants", { token: input.token })),
+      // Caregiver-side: the scoped check-in history for one active grant.
+      sharedHistory: publicProcedure
+        .input(tokenInput.extend({ grantId: z.number().int().positive(), limit: z.number().int().min(1).max(50).default(30) }))
+        .query(({ input }) => legacyRequest<{ success: boolean; count: number; data: unknown[] }>(
+          "/care-access/grants/" + input.grantId + "/checkins?limit=" + input.limit,
+          { token: input.token },
+        )),
+    }),
   }),
 });
 
