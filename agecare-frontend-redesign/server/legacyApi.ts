@@ -10,7 +10,7 @@ type LegacyRequestOptions = {
   body?: unknown;
 };
 
-const fallbackLegacyApiUrl = "https://agecare-backend-c8uq.onrender.com/api";
+const fallbackLegacyApiUrl = "https://agecare-backend-2.onrender.com/api";
 
 export function getLegacyApiUrl() {
   return (process.env.AGECARE_LEGACY_API_URL || fallbackLegacyApiUrl).replace(/\/$/, "");
