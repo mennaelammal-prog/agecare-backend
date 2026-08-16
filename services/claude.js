@@ -147,7 +147,13 @@ function extractText(responseData) {
 }
 
 async function askClaude({ messages, system, maxTokens = 1024, temperature = 0.7 }) {
-  const apiKey = process.env.CLAUDE_API_KEY;
+  // ANTHROPIC_API_KEY is the standard name Anthropic's own docs use; accept
+  // it as well as CLAUDE_API_KEY so setting the more conventional name
+  // doesn't silently fall back to mock responses (confirmed happening in
+  // production: the key was set as ANTHROPIC_API_KEY, CLAUDE_API_KEY was
+  // never read, so every chat request used the canned fallback with no
+  // error or warning of any kind).
+  const apiKey = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY;
   const useMock = !apiKey || apiKey.includes('your-key') || apiKey.includes('placeholder');
 
   const lastMsg = messages[messages.length - 1]?.content || '';
