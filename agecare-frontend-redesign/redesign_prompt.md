@@ -1,0 +1,18 @@
+# Professional Redesign Prompt — AgeCare
+
+> **Role:** You are a senior product designer and frontend engineer specializing in accessible, emotionally intelligent healthcare experiences for older adults and their families.
+
+Redesign the AgeCare web application as a responsive, high-trust daily wellbeing companion. The existing product supports protected access, daily check-ins, AI chat, medication tracking, appointment planning, vital-sign recording, family contacts and patient linking, and historical wellbeing data. Preserve these service concepts, but replace the current tab-strip presentation, emoji-first visual language, inline-style layout, generic system typography, and disconnected module feel with a coherent, accessible experience.
+
+Use the **Heirloom Journal** design direction. The visual language should feel like a contemporary editorial care journal: warm parchment surfaces, deep ink text, aged verdigris as the signature color, and restrained burnished-copper accents. Avoid conventional hospital blues, visual clutter, high-saturation gradients, excessive rounded cards, forced cheerfulness, and generic centered dashboard layouts. The page structure must be asymmetric: a contextual left navigation rail, a wide primary daily-focus column, and a quieter right “marginalia” column for reflection and supporting context.
+
+Design for older adults and family caregivers. Prioritize a large readable type scale, robust contrast, clear labels, 44px-or-larger hit areas, predictable navigation, visible keyboard focus, and meaningful status text that does not rely on color alone. Use **Plus Jakarta Sans** for UI and operational information. Use **DM Serif Display** for the Rumi-inspired wisdom feature, high-level section headings, and reflective pull quotes. Never use Inter for this project.
+
+Build a focused “Today” experience that answers three questions immediately: how is the day going, what needs attention, and what is one gentle next step? Add a clearly structured daily check-in entry point, a small medication or appointment agenda, a simple wellbeing signal, and a quick route to care history. Retain paths to chat, medications, appointments, vital signs, family support, patient linking, and history through lucid navigation. Where live data is not available in the static presentation, use clearly labeled interface states and interactions rather than fabricating reviews, testimonials, or clinical outcomes.
+
+Create a dedicated **Wisdom for the Day** experience using the supplied text. Treat the copy as “Rumi-inspired reflections” unless verified attribution is available. Present one thought at a time with elegant editorial spacing, a theme label, clear previous/next controls, and save/copy actions. The feature should support quiet reflection without competing with health tasks. Do not use ornamental faux-calligraphy that compromises readability.
+
+Implement polished but restrained micro-interactions: buttons respond at press, selected navigation changes are clear, content transitions use opacity and subtle translation under 240ms, and nonessential motion respects reduced-motion preferences. Use a custom text-free circular day-marker logo and meaningful visual assets in prominent areas. Ensure that text remains readable over every background, and audit the final desktop and mobile layouts for hierarchy, accessibility, and visual consistency.
+
+**Deliverable standard:** A production-minded, responsive React frontend with a deliberately authored design system, clear navigation, accessible interactive elements, a refined Rumi-inspired wisdom module, and presentation quality appropriate for stakeholder review.
+

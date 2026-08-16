@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://agecare-backend-c8uq.onrender.com/api';
+const API_URL = 'https://agecare-backend-2.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
