@@ -7,11 +7,12 @@ a warning as a prescription's `end_date` approaches. The code for all of this
 ships already — `services/pushNotifications.js`
 and `services/reminderScheduler.js` on the backend, `ReminderSettings.tsx` and
 `AlarmOverlay.tsx` on the `agecare-frontend-redesign` frontend — but it stays
-dormant until two keys are configured. This doc also covers a related but
-separate feature at the bottom: notifying family when someone misses a
-check-in, which doesn't use push/VAPID at all. Nothing in the app breaks if you skip
-this: the "Reminders" panel (the bell icon, top right) just shows "Reminders
-aren't set up on this server yet." instead of a toggle.
+dormant until two keys are configured. This doc also covers two related but
+separate features at the bottom: notifying family when someone misses a
+check-in or logs an unusual vital-sign reading, neither of which use
+push/VAPID at all. Nothing in the app breaks if you skip this: the
+"Reminders" panel (the bell icon, top right) just shows "Reminders aren't
+set up on this server yet." instead of a toggle.
 
 ## Why this needs a one-time setup step
 
@@ -145,10 +146,37 @@ attempt as `skipped` in `notification_log` rather than actually sending.
   turned on) letting them know their family was notified, at the same
   moment it happens — this is never done invisibly.
 
+## Notifying family about an unusual vital-sign reading
+
+Also email/SMS, also no VAPID keys needed, same SMTP/Twilio configuration —
+this is a sibling feature to the missed-check-in alert above, evaluated by
+`services/vitalThresholds.js` and `services/vitalAlerts.js` whenever a vital
+sign is logged (`routes/vitals.js`).
+
+- **General reference ranges, not medical advice.** Blood pressure, heart
+  rate, oxygen saturation, temperature, and blood sugar are each checked
+  against commonly-used general population reference ranges — deliberately
+  erred wide to avoid false alarms for an older-adult population (many of
+  whom have medically-normal baselines outside a young-healthy-adult range).
+  This app has no clinician role to set personalized targets yet (see
+  `docs/AUSTRALIAN_AGED_CARE_ARCHITECTURE.md` section 3.2 for that fuller
+  design) — this is a deliberately simpler stand-in, and both the resident
+  and family notification say so explicitly.
+- **The resident always sees their own reading flagged** (a push, if they
+  have push turned on) — this isn't gated on an opt-in, since it's just
+  feedback on data they entered themselves, not sharing with a third party.
+- **Off by default** for family, same reasoning as the missed-check-in
+  alert. Toggle: "Notify my family about an unusual vital sign reading".
+- **Dedupe**: once per metric+severity per local day — a second still-high
+  blood pressure reading the same day doesn't re-alert family every time,
+  but a *new* severity (e.g. warning becoming critical) does, since it's
+  genuinely new information.
+
 ## Verifying without a live deploy
 
 The scheduler and dedupe logic are covered by `tests/reminderScheduler.test.js`,
 `tests/notificationsMigration.test.js`, `tests/notificationsPostgresSchema.test.js`,
-and `tests/notificationContent.test.js` (`npm test` from the repo root) —
-these run entirely offline against SQLite and `pg-mem`, so they don't need
-real VAPID keys, SMTP/Twilio credentials, or a real push service.
+`tests/notificationContent.test.js`, `tests/vitalThresholds.test.js`, and
+`tests/vitalAlerts.test.js` (`npm test` from the repo root) — these run
+entirely offline against SQLite and `pg-mem`, so they don't need real VAPID
+keys, SMTP/Twilio credentials, or a real push service.

@@ -295,4 +295,66 @@ async function notifyFamilyMissedCheckin(userId, patientName, db = getDb()) {
   return { contactsNotified: notified };
 }
 
-module.exports = { notifyFamily, notifyFamilyMissedCheckin, sendEmail, sendSMS, processNotification, careAccessRequestEmail, sendCareAccessRequestEmail };
+/**
+ * A gentle heads-up to a patient's family contacts about an out-of-range
+ * vital-sign reading. services/vitalAlerts.js decides *when* to call this
+ * (which readings count as a breach, the resident's own opt-in, dedupe);
+ * this only handles who to tell and what to say. `breaches` is the array
+ * returned by services/vitalThresholds.js's evaluateVitals. Explicitly
+ * not phrased as a diagnosis or medical advice -- see vitalThresholds.js
+ * for why these ranges are general reference points, not personalized ones.
+ */
+async function notifyFamilyVitalAlert(userId, patientName, breaches, db = getDb()) {
+  const contacts = await new Promise((resolve, reject) => {
+    db.all(
+      `SELECT * FROM family_contacts WHERE user_id = ? AND is_active = 1`,
+      [userId],
+      (err, rows) => (err ? reject(err) : resolve(rows)),
+    );
+  });
+
+  const isUrgent = breaches.some((breach) => breach.severity === 'critical');
+  const lines = breaches.map((breach) => `- ${breach.label}: ${breach.value}${breach.unit} (${breach.severity === 'critical' ? 'well outside the usual range' : 'outside the usual range'})`);
+
+  const subject = isUrgent
+    ? `Please check in with ${patientName} soon`
+    : `A gentle heads-up about ${patientName}`;
+  const body = [
+    'Hello,',
+    '',
+    `${patientName} just logged a reading in AgeCare that's outside the general reference range:`,
+    '',
+    ...lines,
+    '',
+    'This is general guidance, not a diagnosis -- it may well be nothing, but you may want to',
+    `check in with them${isUrgent ? ' soon' : ' when you get a chance'}.`,
+    '',
+    '- AgeCare',
+  ].join('\n');
+
+  let notified = 0;
+  for (const contact of contacts) {
+    if (contact.notify_email && contact.email) {
+      const logId = await queueNotification({ contactId: contact.id, type: 'email', to: contact.email, db });
+      await processNotification(logId, { db, subject, body });
+      notified += 1;
+    }
+    if (contact.notify_sms && contact.phone) {
+      const logId = await queueNotification({ contactId: contact.id, type: 'sms', to: contact.phone, db });
+      await processNotification(logId, { db, subject, body });
+      notified += 1;
+    }
+  }
+  return { contactsNotified: notified };
+}
+
+module.exports = {
+  notifyFamily,
+  notifyFamilyMissedCheckin,
+  notifyFamilyVitalAlert,
+  sendEmail,
+  sendSMS,
+  processNotification,
+  careAccessRequestEmail,
+  sendCareAccessRequestEmail,
+};

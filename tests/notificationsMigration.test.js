@@ -30,7 +30,7 @@ test('notifications migration adds reminder preference columns and the subscript
     }
 
     const userColumns = new Set((await all(db, 'PRAGMA table_info(users)')).map((column) => column.name));
-    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled', 'missed_checkin_alerts_enabled']) {
+    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled', 'missed_checkin_alerts_enabled', 'vital_alerts_enabled']) {
       assert.equal(userColumns.has(required), true, `users.${required} should exist`);
     }
 

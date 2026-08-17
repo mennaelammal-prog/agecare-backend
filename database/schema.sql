@@ -59,7 +59,15 @@ CREATE TABLE IF NOT EXISTS appointments (
 );
 
 -- 5. VITAL SIGNS TABLE
-CREATE TABLE IF NOT EXISTS vitals (
+-- Named vital_signs, not vitals, to match what routes/vitals.js actually
+-- queries (INSERT/SELECT/UPDATE/DELETE ... vital_signs) and what
+-- database/postgresSchema.js already names it. This table was previously
+-- called "vitals" here, which routes/vitals.js was never written for --
+-- every vitals call failed outright with "no such table: vital_signs" in
+-- SQLite mode (a 500 response, not a silent background failure like the
+-- other SQLite/Postgres schema-name mismatches found this session).
+-- Postgres-backed production was never affected.
+CREATE TABLE IF NOT EXISTS vital_signs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   blood_pressure_sys INTEGER,
@@ -94,6 +102,6 @@ CREATE TABLE IF NOT EXISTS family_contacts (
 CREATE INDEX IF NOT EXISTS idx_checkins_user ON checkins(user_id);
 CREATE INDEX IF NOT EXISTS idx_medications_user ON medications(user_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_user ON appointments(user_id);
-CREATE INDEX IF NOT EXISTS idx_vitals_user ON vitals(user_id);
+CREATE INDEX IF NOT EXISTS idx_vitals_user ON vital_signs(user_id);
 CREATE INDEX IF NOT EXISTS idx_family_active ON family_contacts(is_active);
 CREATE INDEX IF NOT EXISTS idx_family_linked ON family_contacts(linked_user_id);

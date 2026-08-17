@@ -8,7 +8,7 @@
  * message instead of a broken toggle.
  */
 import { useEffect, useState } from "react";
-import { Bell, BellOff, BellRing, CalendarClock, ClipboardCheck, Loader2, Pill, UsersRound } from "lucide-react";
+import { Activity, Bell, BellOff, BellRing, CalendarClock, ClipboardCheck, Loader2, Pill, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
@@ -173,6 +173,29 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
               gentle heads-up, not an alarm. You'll always be told too, right when it happens.
             </p>
             {preferences.missed_checkin_alerts_enabled && preferences.notifiable_family_contact_count === 0 && (
+              <p className="reminder-family-alert-note reminder-family-alert-warning">
+                No family contacts are set up to be notified yet -- add one in Care Connections and turn on
+                notifications for them.
+              </p>
+            )}
+          </div>
+
+          <div className="reminder-family-alert">
+            <label className="reminder-field reminder-field-toggle">
+              <span><Activity size={15} aria-hidden="true" /> Notify my family about an unusual vital sign reading</span>
+              <input
+                type="checkbox"
+                checked={preferences.vital_alerts_enabled}
+                onChange={(event) => updateMutation.mutate({ token, vitalAlertsEnabled: event.target.checked })}
+              />
+            </label>
+            <p className="reminder-family-alert-note">
+              Off by default, same as above. When a blood pressure, heart rate, oxygen, temperature, or
+              blood sugar reading you log falls outside the general reference range, you always see it
+              first -- this only decides whether family gets a gentle heads-up too. These ranges are
+              general guidance, not a diagnosis -- always follow your own doctor's advice.
+            </p>
+            {preferences.vital_alerts_enabled && preferences.notifiable_family_contact_count === 0 && (
               <p className="reminder-family-alert-note reminder-family-alert-warning">
                 No family contacts are set up to be notified yet -- add one in Care Connections and turn on
                 notifications for them.
