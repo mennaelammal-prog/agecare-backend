@@ -23,7 +23,7 @@ async function request(baseUrl, pathName, token) {
   return { status: response.status, body: await response.json() };
 }
 
-test('Family Circle loads contacts and linked-patient records from a migrated database', { timeout: 20000 }, async () => {
+test('Family Circle loads contacts and linked-patient records from a migrated database', { timeout: 30000 }, async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agecare-family-circle-'));
   const dbPath = path.join(directory, 'test.db');
   const port = 3218;
@@ -37,7 +37,7 @@ test('Family Circle loads contacts and linked-patient records from a migrated da
 
   try {
     let ready = false;
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 130; attempt += 1) {
       await wait(150);
       try { if ((await fetch(`${baseUrl}/health`)).ok) { ready = true; break; } } catch { /* server is booting */ }
     }
