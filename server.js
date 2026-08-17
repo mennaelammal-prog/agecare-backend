@@ -19,8 +19,11 @@ const vitalRoutes = require('./routes/vitals');
 const authRoutes = require('./routes/auth');
 const familyLinkRoutes = require('./routes/familyLink');
 const careAccessRoutes = require('./routes/careAccess');
+const pushRoutes = require('./routes/push');
 const { statements: careAccessMigrations } = require('./migrations/careAccess');
 const { statements: familyContactMigrations } = require('./migrations/familyContacts');
+const { statements: notificationMigrations } = require('./migrations/notifications');
+const reminderScheduler = require('./services/reminderScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -70,6 +73,7 @@ app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/medications', authMiddleware, medicationRoutes);
 app.use('/api/appointments', authMiddleware, appointmentRoutes);
 app.use('/api/vitals', authMiddleware, vitalRoutes);
+app.use('/api/push', authMiddleware, pushRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -115,6 +119,7 @@ async function startServer() {
     await runMigration('ALTER TABLE users ADD COLUMN reset_expires INTEGER', 'reset_expires column');
     for (const migration of familyContactMigrations) await runMigration(migration.sql, migration.label);
     for (const migration of careAccessMigrations) await runMigration(migration.sql, migration.label);
+    for (const migration of notificationMigrations) await runMigration(migration.sql, migration.label);
   }
 
   app.listen(PORT, () => {
@@ -124,6 +129,8 @@ async function startServer() {
     console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`========================================`);
   });
+
+  reminderScheduler.start(db);
 }
 
 startServer();
@@ -131,6 +138,7 @@ startServer();
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down gracefully...');
+  reminderScheduler.stop();
   const { closeDb } = require('./db');
   closeDb();
   process.exit(0);
@@ -138,6 +146,7 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   console.log('\n[Server] Shutting down gracefully...');
+  reminderScheduler.stop();
   const { closeDb } = require('./db');
   closeDb();
   process.exit(0);

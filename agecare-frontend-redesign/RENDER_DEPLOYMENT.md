@@ -36,6 +36,7 @@ Don't prefix the build command with `corepack enable &&` — Render's Node build
 2. Open browser dev tools → Network, and confirm `/api/trpc/system.health` returns `{"result":{"data":{"json":{"status":"ok",...}}}}` — this exercises the tRPC server without touching the AgeCare backend.
 3. Click "Connect AgeCare" and sign in with a real (non-production-critical) AgeCare account. If this fails, check the service logs for the actual error `legacyApi.ts` surfaced from the backend, and confirm `agecare-backend-2`'s CORS/allowed-origins config (`server.js` at the repo root) doesn't need this new origin added — it shouldn't, since all AgeCare calls are server-to-server from *this* service to the backend, not browser-to-backend.
 4. Open **Care Connections** and confirm the merged Family contacts / Care Access view loads (see `README.md` → "Care Connections" for what changed there).
+5. Click the bell icon (top right). If it shows "Reminders aren't set up on this server yet.", that's expected until the *backend* service (`agecare-backend-2`, not this one) has VAPID keys configured — see `REMINDERS_SETUP.md` at the repo root. Nothing needs to be set on this frontend service for reminders; the toggle just stays dormant until the backend is ready.
 
 ## If you'd rather I drive this myself
 

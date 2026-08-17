@@ -38,6 +38,8 @@ import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { ChatModule, HistoryModule, LegacyLoginModal, LiveCheckin, ResourceModule } from "@/components/LegacyCareModules";
 import { CareConnections } from "@/components/CareConnections";
+import { ReminderSettings } from "@/components/ReminderSettings";
+import { AlarmOverlay } from "@/components/AlarmOverlay";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // The original export referenced /manus-storage/... image assets (hero photo,
@@ -421,6 +423,7 @@ export default function Home() {
 
   return (
     <div className="agecare-app">
+      <AlarmOverlay />
       <aside className="sidebar" aria-label={t("primaryNavigation")}>
         <div className="brand-lockup">
           <img src={logo} alt="AgeCare" className="brand-mark" />
@@ -536,8 +539,20 @@ export default function Home() {
           </div>
           {noticeOpen && (
             <div className="notice-popover" role="status">
-              <ShieldCheck size={18} />
-              <span><strong>{legacyToken ? "AgeCare is connected." : "Connect your existing account."}</strong> {legacyToken ? "Your live care records can now load here." : "Your health information remains hidden until you sign in."}</span>
+              {legacyToken ? (
+                <>
+                  <div className="notice-status">
+                    <ShieldCheck size={18} />
+                    <span><strong>AgeCare is connected.</strong> Your live care records can load here.</span>
+                  </div>
+                  <ReminderSettings token={legacyToken} />
+                </>
+              ) : (
+                <div className="notice-status">
+                  <ShieldCheck size={18} />
+                  <span><strong>Connect your existing account.</strong> Your health information remains hidden until you sign in.</span>
+                </div>
+              )}
             </div>
           )}
         </div>
