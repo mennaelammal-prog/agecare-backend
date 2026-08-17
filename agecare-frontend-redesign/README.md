@@ -32,6 +32,33 @@ The former `FamilyManager.tsx`/`LinkPatientModule` (two separate nav items: "Fam
 - Patient-side: incoming requests can be approved (with a 1/7/30/90-day duration picker, matching the backend's `expires_in_days` contract) or declined; active grants you've given out can be removed — all via `legacy.careAccess.{incomingRequests,approveRequest,revokeGrant,patientGrants}`.
 - Caregiver-side: every patient who has approved you is listed with their expiry, and "View shared check-ins" expands their scoped history inline via `legacy.careAccess.sharedHistory` → `GET /care-access/grants/:grantId/checkins`. The backend only allows the *patient* side of a grant to revoke it, so no (misleading, always-failing) "remove access" control is shown on this side.
 
+## Reminders — real ringing push notifications, not just an on-screen badge
+
+The bell icon (top right) opens a **Reminders** panel (`client/src/components/ReminderSettings.tsx`)
+that turns on real Web Push for the signed-in member's device: a daily
+check-in nudge at a time they choose, a ping at each medication's scheduled
+time, and a warning as a prescription's `end_date` approaches. The backend
+side (`services/pushNotifications.js`, `services/reminderScheduler.js`,
+`routes/push.js` at the repo root) checks every minute and dedupes so each
+reminder fires once per local day, in the member's own timezone.
+
+- **While the app is open**, a reminder marked urgent (check-in, medication
+  due — not the renewal warning, which is informational) is relayed from
+  `client/public/sw.js` to the open tab via `postMessage`, and
+  `client/src/components/AlarmOverlay.tsx` shows a full-screen alert and
+  rings a synthesized alarm tone (`client/src/lib/alarm.ts`, Web Audio
+  oscillators — no audio file to host, for the same reason the images work
+  self-hosted rather than depend on a CDN this session couldn't reach).
+- **While the app is closed**, the OS/browser shows its own system
+  notification with its own default sound — Web Push has no API to attach a
+  custom sound to a background notification; that's a real platform
+  limitation, not a shortcut taken here.
+- This stays dormant (the panel shows "Reminders aren't set up on this
+  server yet.") until the backend has VAPID keys configured. See
+  `REMINDERS_SETUP.md` at the repo root for the one-time setup (generating
+  the keys, which Render service they go on, and how to send yourself a
+  test reminder to confirm the whole pipeline works).
+
 ## Relation to the existing frontend and backend
 
 - `agecare-frontend-main/` (repo root) remains the current, deployed frontend. This redesign is additive, not a replacement — nothing here changes what ships today.

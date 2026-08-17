@@ -179,6 +179,66 @@ export const appRouter = router({
           { token: input.token },
         )),
     }),
+    // Reminder push notifications: proxies the backend's /api/push/* routes
+    // (routes/push.js). The backend only turns these on once VAPID keys are
+    // configured (VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY on Render) -- until
+    // then vapidPublicKey/test return a "not configured" error the client
+    // treats as "reminders aren't set up yet" rather than a hard failure.
+    push: router({
+      vapidPublicKey: publicProcedure
+        .input(tokenInput)
+        .query(({ input }) => legacyRequest<{ success: boolean; publicKey: string }>("/push/vapid-public-key", { token: input.token })),
+      subscribe: publicProcedure
+        .input(tokenInput.extend({
+          endpoint: z.string().url(),
+          keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }),
+        }))
+        .mutation(({ input }) => legacyRequest("/push/subscribe", {
+          method: "POST",
+          token: input.token,
+          body: { endpoint: input.endpoint, keys: input.keys },
+        })),
+      unsubscribe: publicProcedure
+        .input(tokenInput.extend({ endpoint: z.string().url() }))
+        .mutation(({ input }) => legacyRequest("/push/unsubscribe", {
+          method: "POST",
+          token: input.token,
+          body: { endpoint: input.endpoint },
+        })),
+      preferences: publicProcedure
+        .input(tokenInput)
+        .query(({ input }) => legacyRequest<{
+          success: boolean;
+          data: {
+            timezone: string;
+            checkin_reminder_time: string;
+            checkin_reminder_enabled: boolean;
+            medication_reminders_enabled: boolean;
+            push_configured: boolean;
+            device_count: number;
+          };
+        }>("/push/preferences", { token: input.token })),
+      updatePreferences: publicProcedure
+        .input(tokenInput.extend({
+          checkinReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+          checkinReminderEnabled: z.boolean().optional(),
+          medicationRemindersEnabled: z.boolean().optional(),
+          timezone: z.string().min(1).max(80).optional(),
+        }))
+        .mutation(({ input }) => legacyRequest("/push/preferences", {
+          method: "PUT",
+          token: input.token,
+          body: {
+            checkin_reminder_time: input.checkinReminderTime,
+            checkin_reminder_enabled: input.checkinReminderEnabled,
+            medication_reminders_enabled: input.medicationRemindersEnabled,
+            timezone: input.timezone,
+          },
+        })),
+      test: publicProcedure
+        .input(tokenInput)
+        .mutation(({ input }) => legacyRequest<{ success: boolean; sent: number; total: number }>("/push/test", { method: "POST", token: input.token })),
+    }),
   }),
 });
 
