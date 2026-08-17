@@ -7,6 +7,15 @@
  * check-in nudge, each medication's due time -- not the renewal warning,
  * which is informational rather than urgent) this rings a synthesized tone
  * on a loop and shows a full-screen alert until dismissed.
+ *
+ * MAX_RING_DURATION_MS is a hard safety cap: real feedback was that a test
+ * reminder kept ringing for several minutes with no obvious way to stop it
+ * (most likely a missed click, or more than one tab open -- each open tab
+ * rings independently, since each is a separate page with its own audio).
+ * Rather than rely solely on the Dismiss button working every time, this
+ * component now always stops itself after MAX_RING_DURATION_MS regardless
+ * of whether anyone clicks anything -- a stuck, unstoppable alarm is a real
+ * problem in an aged-care app, so this errs toward silence over persistence.
  */
 import { useEffect, useState } from "react";
 import { BellRing, X } from "lucide-react";
@@ -18,6 +27,8 @@ type ReminderPayload = {
   body?: string;
   alarm?: boolean;
 };
+
+const MAX_RING_DURATION_MS = 45_000;
 
 export function AlarmOverlay() {
   const [ringing, setRinging] = useState<ReminderPayload | null>(null);
@@ -35,12 +46,16 @@ export function AlarmOverlay() {
   }, []);
 
   useEffect(() => {
-    if (ringing) {
-      playAlarmTone();
-    } else {
+    if (!ringing) {
       stopAlarmTone();
+      return undefined;
     }
-    return () => stopAlarmTone();
+    playAlarmTone();
+    const safety = setTimeout(() => setRinging(null), MAX_RING_DURATION_MS);
+    return () => {
+      clearTimeout(safety);
+      stopAlarmTone();
+    };
   }, [ringing]);
 
   if (!ringing) return null;
@@ -54,6 +69,7 @@ export function AlarmOverlay() {
         <Button type="button" className="alarm-dismiss" onClick={() => setRinging(null)}>
           <X size={16} /> Dismiss
         </Button>
+        <p className="alarm-auto-stop">This stops on its own after a short while, too.</p>
       </div>
     </div>
   );

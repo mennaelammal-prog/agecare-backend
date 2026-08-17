@@ -146,6 +146,7 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .alarm-card p { margin: 0; color: var(--muted-ink); font-size: 13px; line-height: 1.55; }
 .alarm-dismiss { width: 100%; justify-content: center; min-height: 44px !important; border: 0 !important; border-radius: 9px !important; color: #fffdf8 !important; background: var(--verdigris) !important; font-size: 12px !important; font-weight: 800 !important; }
 .alarm-dismiss:hover { background: var(--verdigris-deep) !important; }
+.alarm-auto-stop { margin: 0; color: var(--muted-ink); font-size: 10px; }
 @keyframes alarm-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
 .primary-action, .ink-action { min-height: 44px; border: 0 !important; border-radius: 9px !important; font-size: 12px !important; font-weight: 800 !important; box-shadow: none !important; transition: transform .16s var(--ease-out), background .18s var(--ease-out) !important; }
 .primary-action { color: #fffdf8 !important; background: var(--verdigris) !important; }
