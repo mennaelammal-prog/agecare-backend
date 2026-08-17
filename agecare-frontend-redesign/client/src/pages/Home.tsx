@@ -45,15 +45,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // files were included in the project export, and there was no local
 // equivalent (see the CSS-only gradient fallbacks still on .hero-photo,
 // .reflection-photo, and .agecare-app's background in index.css, used if
-// these fail to load). These three are AI-generated replacements matching
-// the Heirloom Journal brief, hosted on Higgsfield's CDN rather than
-// self-hosted in this repo -- the environment that generated them can't
-// reach the same network its own build/deploy tooling can, so the bytes
-// couldn't be downloaded into a local asset file. Worth migrating to a
-// self-hosted copy (client/public/images/) if that CDN link ever becomes
-// unreliable.
-const heroImage = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234001_c8e00203-b231-4380-9e64-3baa09a6bc52.png";
-const reflectionImage = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234004_3aa25f87-6924-4db9-9e47-3955712e8c7e.png";
+// these fail to load). These are AI-generated replacements matching the
+// Heirloom Journal brief. The hero and reflection photos are self-hosted in
+// client/public/images/ (the user downloaded and uploaded them via GitHub's
+// web UI -- the session that generated them couldn't reach the CDN it
+// uploaded them to, only the CDN link, so it couldn't fetch the bytes
+// itself). The logo is still on Higgsfield's CDN pending the same treatment.
+const heroImage = "/images/hero-journal.png";
+const reflectionImage = "/images/reflection-window.png";
 const logo = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234006_ee34f997-3b42-42ee-88b5-f090ae76a6af.png";
 
 const navGroups = [
