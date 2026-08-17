@@ -20,6 +20,7 @@ const authRoutes = require('./routes/auth');
 const familyLinkRoutes = require('./routes/familyLink');
 const careAccessRoutes = require('./routes/careAccess');
 const pushRoutes = require('./routes/push');
+const sosRoutes = require('./routes/sos');
 const { statements: careAccessMigrations } = require('./migrations/careAccess');
 const { statements: familyContactMigrations } = require('./migrations/familyContacts');
 const { statements: notificationMigrations } = require('./migrations/notifications');
@@ -74,6 +75,7 @@ app.use('/api/medications', authMiddleware, medicationRoutes);
 app.use('/api/appointments', authMiddleware, appointmentRoutes);
 app.use('/api/vitals', authMiddleware, vitalRoutes);
 app.use('/api/push', authMiddleware, pushRoutes);
+app.use('/api/sos', authMiddleware, sosRoutes);
 
 // 404 handler
 app.use((req, res) => {

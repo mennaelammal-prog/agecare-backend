@@ -40,6 +40,8 @@ import { ChatModule, HistoryModule, LegacyLoginModal, LiveCheckin, ResourceModul
 import { CareConnections } from "@/components/CareConnections";
 import { ReminderSettings } from "@/components/ReminderSettings";
 import { AlarmOverlay } from "@/components/AlarmOverlay";
+import { AccessibilitySettings } from "@/components/AccessibilitySettings";
+import { SOSButton } from "@/components/SOSButton";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // The original export referenced /manus-storage/... image assets (hero photo,
@@ -424,6 +426,7 @@ export default function Home() {
   return (
     <div className="agecare-app">
       <AlarmOverlay />
+      {legacyToken && <SOSButton token={legacyToken} />}
       <aside className="sidebar" aria-label={t("primaryNavigation")}>
         <div className="brand-lockup">
           <img src={logo} alt="AgeCare" className="brand-mark" />
@@ -529,6 +532,7 @@ export default function Home() {
                 <option value="vi">{t("vietnamese")}</option>
               </select>
             </label>
+            <AccessibilitySettings />
             <button type="button" className="notification-button" onClick={() => setNoticeOpen(!noticeOpen)} aria-label="Open notifications">
               <Bell size={20} />
               <span className="notification-dot" />

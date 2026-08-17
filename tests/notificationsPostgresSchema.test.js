@@ -128,3 +128,18 @@ test('reminder_log accepts every reminder_type value the scheduler actually uses
   const rows = await pool.query('SELECT reminder_type FROM reminder_log ORDER BY reminder_type');
   assert.deepEqual(rows.rows.map((r) => r.reminder_type).sort(), [...usedTypes].sort());
 });
+
+test('sos_events records a triggered alert and its notified-contact count', async () => {
+  const memory = newDb();
+  const { Pool } = memory.adapters.createPg();
+  const pool = new Pool();
+  await runPostgresSchema(pool);
+
+  const user = await pool.query(`INSERT INTO users (email, password_hash) VALUES ('a@example.test', 'x') RETURNING id`);
+  const userId = user.rows[0].id;
+
+  await pool.query(`INSERT INTO sos_events (user_id, contacts_notified) VALUES ($1, 2)`, [userId]);
+  const rows = await pool.query('SELECT user_id, contacts_notified FROM sos_events');
+  assert.equal(rows.rows.length, 1);
+  assert.equal(rows.rows[0].contacts_notified, 2);
+});
