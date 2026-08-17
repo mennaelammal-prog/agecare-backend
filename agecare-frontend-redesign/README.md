@@ -73,6 +73,37 @@ appointment for the appointment reminder), in the member's own timezone.
   reading or missed check-in flagged first, family only if they've chosen
   to share it. See `REMINDERS_SETUP.md`'s "Notifying family..." sections.
 
+## Emergency alert — "I need help"
+
+A floating button (bottom right, visible whenever signed in,
+`client/src/components/SOSButton.tsx`) reaches every family contact with an
+email or phone on file, in one tap. Tapping starts a 5-second, cancelable
+countdown rather than requiring a second confirming tap — fast for someone
+who genuinely needs it, with a large "Cancel" for an accidental press.
+Unlike the reminder toggles above, this isn't gated behind any opt-in
+preference and isn't limited to contacts who turned on routine
+notifications (`routes/sos.js` / `services/notification.js`'s
+`notifyFamilySOS` on the backend) — pressing the button is itself the
+resident's explicit, deliberate request, so it's built to reach everyone
+who could help, not just whoever previously opted into updates. Each
+trigger is logged (`sos_events`) with how many contacts were reached, and
+the resident gets a separate confirmation push telling them what happened.
+
+## Display settings — text size and high contrast
+
+The "A" icon next to the language selector opens a small panel
+(`client/src/components/AccessibilitySettings.tsx`,
+`client/src/contexts/AccessibilityContext.tsx`) with three text-size steps
+and a high-contrast toggle, persisted per-device in localStorage (the same
+pattern as the language choice). Text size uses CSS `zoom` on `<html>`
+rather than a root font-size/rem scale — this stylesheet is written
+entirely in px, so there was nothing to scale that way without converting
+every declaration; `zoom` scales the whole rendered page uniformly with no
+reflow/overlap issues, and is supported by every actively-updated browser.
+High contrast overrides the color tokens in `index.css` for stronger
+contrast ratios (near-black text on white, solid black borders) and drops
+the decorative parchment texture.
+
 ## Relation to the existing frontend and backend
 
 - `agecare-frontend-main/` (repo root) remains the current, deployed frontend. This redesign is additive, not a replacement — nothing here changes what ships today.

@@ -46,6 +46,39 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* Display settings -- text size and high contrast (AccessibilityContext.tsx).
+   Text size uses `zoom` on <html> rather than a root font-size/rem scale --
+   this whole stylesheet is written in px, so there's nothing to scale that
+   way without converting every declaration; `zoom` scales the entire
+   rendered page (text, spacing, controls) uniformly with no reflow/overlap
+   issues, and is supported by every actively-updated browser. */
+html[data-font-scale="large"] { zoom: 1.15; }
+html[data-font-scale="xlarge"] { zoom: 1.3; }
+
+/* High contrast overrides key color tokens for stronger contrast ratios
+   (near-black text on white, solid black borders, more saturated brand
+   colors) and removes the decorative low-contrast parchment texture. */
+:root[data-contrast="high"] {
+  --background: #ffffff;
+  --foreground: #000000;
+  --primary: #0d332d;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --border: #000000;
+  --ink: #000000;
+  --muted-ink: #3a3a3a;
+  --paper: #ffffff;
+  --paper-deep: #ffffff;
+  --verdigris: #0d332d;
+  --verdigris-deep: #061a17;
+  --verdigris-pale: #d8e6e3;
+  --copper: #7a3e14;
+  --copper-pale: #f0ddc9;
+  --line: #000000;
+}
+:root[data-contrast="high"] .agecare-app { background-image: none; }
+
 * { box-sizing: border-box; }
 html { background: var(--paper-deep); }
 body { margin: 0; min-width: 320px; background: var(--paper-deep); color: var(--ink); font-family: "Plus Jakarta Sans", sans-serif; }
@@ -141,6 +174,29 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .reminder-family-alert { display: flex; flex-direction: column; gap: 6px; padding-top: 9px; border-top: 1px solid var(--line); }
 .reminder-family-alert-note { margin: 0; color: var(--muted-ink); font-size: 10px; line-height: 1.55; }
 .reminder-family-alert-warning { color: var(--copper); font-weight: 700; }
+
+.a11y-settings { position: relative; }
+.a11y-popover { position: absolute; z-index: 5; top: 50px; right: 0; display: flex; flex-direction: column; width: min(240px, 82vw); gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; color: #48615a; background: #fffdf8; box-shadow: var(--shadow-soft); font-size: 12px; line-height: 1.55; }
+.a11y-popover-head strong { display: block; color: var(--ink); font-size: 12px; }
+.a11y-popover-head small { display: block; margin-top: 2px; color: var(--muted-ink); font-size: 11px; font-weight: 500; }
+.a11y-field { display: flex; flex-direction: column; gap: 8px; font-size: 11px; font-weight: 700; color: var(--ink); }
+.a11y-field-toggle { flex-direction: row; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--line); }
+.a11y-field-toggle span { display: flex; align-items: center; gap: 6px; }
+.a11y-field-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--verdigris); }
+.a11y-scale-buttons { display: flex; gap: 6px; }
+.a11y-scale-button { flex: 1; min-height: 38px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: #fffdf8; font-size: 13px; font-weight: 800; cursor: pointer; transition: border-color .16s var(--ease-out), background .16s var(--ease-out), color .16s var(--ease-out); }
+.a11y-scale-button:hover { border-color: var(--verdigris); }
+.a11y-scale-button.is-active { color: #fffdf8; border-color: var(--verdigris); background: var(--verdigris); }
+
+.sos-button { position: fixed; right: 26px; bottom: 26px; z-index: 45; display: flex; align-items: center; gap: 8px; padding: 14px 20px; border: 0; border-radius: 999px; color: #fffdf8; background: #b3401f; font-size: 13px; font-weight: 800; box-shadow: 0 14px 34px rgba(179, 64, 31, .35); cursor: pointer; transition: transform .16s var(--ease-out), background .18s var(--ease-out); }
+.sos-button:hover { background: #93321a; transform: translateY(-2px); }
+.sos-button:disabled { opacity: .6; cursor: default; transform: none; }
+.sos-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; background: rgba(36, 12, 8, .6); backdrop-filter: blur(2px); }
+.sos-card { display: grid; justify-items: center; gap: 14px; width: min(380px, 92vw); padding: 34px 28px; border-radius: 20px; background: #fffdf8; box-shadow: var(--shadow-soft); text-align: center; }
+.sos-icon { color: #b3401f; }
+.sos-card h2 { margin: 0; font-family: "DM Serif Display", serif; font-size: 22px; font-weight: 400; color: var(--ink); }
+.sos-card p { margin: 0; color: var(--muted-ink); font-size: 13px; line-height: 1.55; }
+.sos-cancel { width: 100%; justify-content: center; min-height: 44px !important; border: 1px solid var(--line) !important; border-radius: 9px !important; color: var(--ink) !important; background: #fffdf8 !important; font-size: 12px !important; font-weight: 800 !important; }
 
 .alarm-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: rgba(36, 30, 20, .6); backdrop-filter: blur(2px); }
 .alarm-card { display: grid; justify-items: center; gap: 14px; width: min(360px, 92vw); padding: 34px 28px; border-radius: 20px; background: #fffdf8; box-shadow: var(--shadow-soft); text-align: center; animation: alarm-pulse 1.1s ease-in-out infinite; }

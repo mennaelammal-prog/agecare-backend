@@ -249,6 +249,14 @@ export const appRouter = router({
         .input(tokenInput)
         .mutation(({ input }) => legacyRequest<{ success: boolean; sent: number; total: number }>("/push/test", { method: "POST", token: input.token })),
     }),
+    // One-tap emergency alert -- proxies POST /api/sos (routes/sos.js). Not
+    // gated behind any opt-in preference the way the reminder toggles above
+    // are: pressing "I need help" is itself the explicit request.
+    sos: router({
+      trigger: publicProcedure
+        .input(tokenInput)
+        .mutation(({ input }) => legacyRequest<{ success: boolean; contactsNotified: number }>("/sos", { method: "POST", token: input.token })),
+    }),
   }),
 });
 

@@ -80,6 +80,17 @@ const statements = [
     )`,
   },
   { label: 'reminder log lookup index', sql: 'CREATE INDEX IF NOT EXISTS idx_reminder_log_lookup ON reminder_log(user_id, reminder_type, reminder_date)' },
+  {
+    label: 'sos events table',
+    sql: `CREATE TABLE IF NOT EXISTS sos_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      contacts_notified INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+  },
+  { label: 'sos events user index', sql: 'CREATE INDEX IF NOT EXISTS idx_sos_events_user ON sos_events(user_id, created_at DESC)' },
 ];
 
 module.exports = { statements };

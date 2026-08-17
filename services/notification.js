@@ -140,8 +140,12 @@ async function sendSMS({ to, body, logId }) {
  * optional overrides -- omitted, this falls back to the original
  * "new check-in recorded" wording so the existing notifyFamily caller is
  * unaffected; notifyFamilyMissedCheckin below always supplies its own.
+ * `force: true` bypasses each contact's notify_email/notify_sms toggle --
+ * only notifyFamilySOS uses this (see its own comment for why an
+ * explicit, resident-initiated emergency alert isn't gated the same way
+ * routine automated updates are).
  */
-async function processNotification(logId, { db = getDb(), subject, body } = {}) {
+async function processNotification(logId, { db = getDb(), subject, body, force = false } = {}) {
   const row = await new Promise((resolve, reject) => {
     db.get(
       `SELECT nl.*, fc.email, fc.phone, fc.name, fc.notify_email, fc.notify_sms
@@ -165,9 +169,9 @@ async function processNotification(logId, { db = getDb(), subject, body } = {}) 
   const finalSubject = subject || `Daily Check-in Update for ${row.name}`;
   const finalBody = body || `Hello ${row.name},\n\nA new daily check-in has been recorded.\n\nPlease check the Age Care App for details.\n\n- Age Care Team`;
 
-  if (row.type === 'email' && row.notify_email && row.email) {
+  if (row.type === 'email' && row.email && (force || row.notify_email)) {
     result = await sendEmail({ to: row.email, subject: finalSubject, body: finalBody, logId });
-  } else if (row.type === 'sms' && row.notify_sms && row.phone) {
+  } else if (row.type === 'sms' && row.phone && (force || row.notify_sms)) {
     result = await sendSMS({ to: row.phone, body: finalBody, logId });
   } else {
     console.log(`[Notify] Skipping ${row.type} for ${row.name} - not enabled or no contact info`);
@@ -203,7 +207,7 @@ async function processNotification(logId, { db = getDb(), subject, body } = {}) 
   // Retry if needed
   if (status === 'retrying') {
     console.log(`[Notify] Retrying ${logId} in ${RETRY_DELAY}ms (attempt ${row.retry_count + 1}/${MAX_RETRIES})`);
-    setTimeout(() => processNotification(logId, { db, subject, body }), RETRY_DELAY);
+    setTimeout(() => processNotification(logId, { db, subject, body, force }), RETRY_DELAY);
   }
 }
 
@@ -348,10 +352,56 @@ async function notifyFamilyVitalAlert(userId, patientName, breaches, db = getDb(
   return { contactsNotified: notified };
 }
 
+/**
+ * Sends an urgent alert to EVERY active family contact with an email or
+ * phone on file. Unlike every other function in this file, this is NOT
+ * filtered by each contact's notify_email/notify_sms toggle (`force: true`
+ * on processNotification) -- those toggles exist to control routine,
+ * automated updates the resident didn't directly ask for (a new check-in,
+ * a missed one, an unusual reading); pressing the "I need help" button is
+ * a deliberate, explicit request from the resident themselves, and should
+ * reach everyone who could possibly help, not just whoever happened to
+ * opt into routine updates.
+ */
+async function notifyFamilySOS(userId, patientName, db = getDb()) {
+  const contacts = await new Promise((resolve, reject) => {
+    db.all(
+      `SELECT * FROM family_contacts WHERE user_id = ? AND is_active = 1`,
+      [userId],
+      (err, rows) => (err ? reject(err) : resolve(rows)),
+    );
+  });
+
+  const subject = `${patientName} needs help -- AgeCare emergency alert`;
+  const body = [
+    `${patientName} just pressed the "I need help" button in AgeCare and is asking for assistance.`,
+    '',
+    'Please check on them as soon as you can.',
+    '',
+    '- AgeCare',
+  ].join('\n');
+
+  let notified = 0;
+  for (const contact of contacts) {
+    if (contact.email) {
+      const logId = await queueNotification({ contactId: contact.id, type: 'email', to: contact.email, db });
+      await processNotification(logId, { db, subject, body, force: true });
+      notified += 1;
+    }
+    if (contact.phone) {
+      const logId = await queueNotification({ contactId: contact.id, type: 'sms', to: contact.phone, db });
+      await processNotification(logId, { db, subject, body, force: true });
+      notified += 1;
+    }
+  }
+  return { contactsNotified: notified };
+}
+
 module.exports = {
   notifyFamily,
   notifyFamilyMissedCheckin,
   notifyFamilyVitalAlert,
+  notifyFamilySOS,
   sendEmail,
   sendSMS,
   processNotification,

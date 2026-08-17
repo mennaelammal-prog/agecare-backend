@@ -13,7 +13,7 @@ test('PostgreSQL adapter converts SQLite placeholders and timestamps safely', ()
 
 test('PostgreSQL schema includes durable account, Family Circle, and consent tables', () => {
   const schema = statements.join('\n');
-  for (const table of ['users', 'family_contacts', 'care_access_grants', 'care_access_audit', 'checkins', 'notification_log', 'push_subscriptions', 'reminder_log']) {
+  for (const table of ['users', 'family_contacts', 'care_access_grants', 'care_access_audit', 'checkins', 'notification_log', 'push_subscriptions', 'reminder_log', 'sos_events']) {
     assert.match(schema, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   }
   assert.match(schema, /role TEXT NOT NULL DEFAULT 'patient'/);
