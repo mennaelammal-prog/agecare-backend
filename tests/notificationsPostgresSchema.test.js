@@ -13,11 +13,12 @@ test('PostgreSQL schema creates reminder tables and preference columns', async (
   const columns = await pool.query(
     `SELECT column_name FROM information_schema.columns WHERE table_name = 'users'`);
   const columnNames = new Set(columns.rows.map((row) => row.column_name));
-  for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled']) {
+  for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled', 'missed_checkin_alerts_enabled']) {
     assert.equal(columnNames.has(required), true, `users.${required} should exist`);
   }
 
-  const user = await pool.query(`INSERT INTO users (email, password_hash) VALUES ('a@example.test', 'x') RETURNING timezone, checkin_reminder_time`);
+  const user = await pool.query(`INSERT INTO users (email, password_hash) VALUES ('a@example.test', 'x') RETURNING timezone, checkin_reminder_time, missed_checkin_alerts_enabled`);
+  assert.equal(user.rows[0].missed_checkin_alerts_enabled, 0);
   assert.equal(user.rows[0].timezone, 'Australia/Sydney');
   assert.equal(user.rows[0].checkin_reminder_time, '09:00');
 });

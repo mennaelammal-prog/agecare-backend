@@ -8,7 +8,7 @@
  * message instead of a broken toggle.
  */
 import { useEffect, useState } from "react";
-import { Bell, BellOff, BellRing, CalendarClock, ClipboardCheck, Loader2, Pill } from "lucide-react";
+import { Bell, BellOff, BellRing, CalendarClock, ClipboardCheck, Loader2, Pill, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
@@ -157,6 +157,28 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
             {testMutation.isPending ? "Sending..." : "Send a test reminder now"}
           </button>
           <p className="reminder-device-count">{preferences.device_count} device{preferences.device_count === 1 ? "" : "s"} registered.</p>
+
+          <div className="reminder-family-alert">
+            <label className="reminder-field reminder-field-toggle">
+              <span><UsersRound size={15} aria-hidden="true" /> Notify my family if I miss a check-in</span>
+              <input
+                type="checkbox"
+                checked={preferences.missed_checkin_alerts_enabled}
+                onChange={(event) => updateMutation.mutate({ token, missedCheckinAlertsEnabled: event.target.checked })}
+              />
+            </label>
+            <p className="reminder-family-alert-note">
+              Off by default -- this is your choice to make. If it's on and you haven't checked in a
+              few hours after your reminder time, the family contacts you've asked to be notified get a
+              gentle heads-up, not an alarm. You'll always be told too, right when it happens.
+            </p>
+            {preferences.missed_checkin_alerts_enabled && preferences.notifiable_family_contact_count === 0 && (
+              <p className="reminder-family-alert-note reminder-family-alert-warning">
+                No family contacts are set up to be notified yet -- add one in Care Connections and turn on
+                notifications for them.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

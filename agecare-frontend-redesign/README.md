@@ -61,6 +61,14 @@ appointment for the appointment reminder), in the member's own timezone.
   `REMINDERS_SETUP.md` at the repo root for the one-time setup (generating
   the keys, which Render service they go on, and how to send yourself a
   test reminder to confirm the whole pipeline works).
+- **A separate toggle below the reminder times**, "Notify my family if I
+  miss a check-in", doesn't use push at all — it's email/SMS to whichever
+  family contacts already have notifications turned on for them, sent if
+  the resident hasn't checked in a few hours after their own reminder time.
+  Off by default (an explicit, resident-controlled opt-in, consistent with
+  Care Connections' consent model above) — the resident is always told too,
+  right when it happens, never silently. See `REMINDERS_SETUP.md`'s
+  "Notifying family when someone misses a check-in" section.
 
 ## Relation to the existing frontend and backend
 

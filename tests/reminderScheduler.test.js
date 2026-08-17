@@ -67,7 +67,7 @@ function runMigrationTolerant(db, sql) {
 
 async function seededDb() {
   const db = new sqlite3.Database(':memory:');
-  await exec(db, `CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL)`);
+  await exec(db, `CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, name TEXT, full_name TEXT)`);
   await exec(db, `CREATE TABLE checkins (
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
@@ -78,6 +78,10 @@ async function seededDb() {
   await exec(db, `CREATE TABLE appointments (
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, doctor_name TEXT NOT NULL,
     specialty TEXT, location TEXT, appointment_date DATETIME NOT NULL
+  )`);
+  await exec(db, `CREATE TABLE family_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL,
+    email TEXT, phone TEXT, notify_email INTEGER DEFAULT 1, notify_sms INTEGER DEFAULT 0, is_active INTEGER DEFAULT 1
   )`);
   for (const migration of notificationStatements) await runMigrationTolerant(db, migration.sql);
   return db;
@@ -215,7 +219,59 @@ test('runAppointmentReminders respects the per-user toggle and skips inactive ap
   }
 });
 
-test('tick runs all four reminder passes without throwing when push is not configured', async () => {
+test('runMissedCheckinAlerts fires only after the grace period, once, and only when opted in with an eligible contact', async () => {
+  const db = await seededDb();
+  try {
+    // user 1: opted in, reminder at 09:00, no check-in, has an eligible contact -- should fire
+    // once grace has elapsed (default 4h -> due at 13:00 local).
+    await run(db, `INSERT INTO users (id, email, name, timezone, checkin_reminder_time, missed_checkin_alerts_enabled) VALUES (1, 'a@example.test', 'Pat', 'Australia/Sydney', '09:00', 1)`);
+    await run(db, `INSERT INTO family_contacts (user_id, name, email, notify_email) VALUES (1, 'Alex', 'alex@example.test', 1)`);
+
+    const beforeGrace = new Date('2026-08-17T01:30:00Z'); // 11:30 Sydney -- only 2.5h after 09:00, not yet 4h
+    await scheduler.runMissedCheckinAlerts(db, beforeGrace);
+    assert.equal((await all(db, `SELECT * FROM reminder_log WHERE reminder_type = 'missed_checkin_family_alert'`)).length, 0);
+
+    const atGrace = new Date('2026-08-17T03:00:00Z'); // 13:00 Sydney -- exactly 4h after 09:00
+    await scheduler.runMissedCheckinAlerts(db, atGrace);
+    const claims = await all(db, `SELECT * FROM reminder_log WHERE reminder_type = 'missed_checkin_family_alert'`);
+    assert.equal(claims.length, 1);
+    assert.equal(claims[0].user_id, 1);
+
+    // A later tick the same day must not re-notify.
+    await scheduler.runMissedCheckinAlerts(db, new Date('2026-08-17T05:00:00Z'));
+    assert.equal((await all(db, `SELECT * FROM reminder_log WHERE reminder_type = 'missed_checkin_family_alert'`)).length, 1);
+  } finally {
+    await new Promise((resolve) => db.close(resolve));
+  }
+});
+
+test('runMissedCheckinAlerts respects the opt-in default, already-checked-in state, and requires an eligible contact', async () => {
+  const db = await seededDb();
+  const atGrace = new Date('2026-08-17T03:00:00Z'); // 13:00 Sydney
+  try {
+    // user 2: has NOT opted in (missed_checkin_alerts_enabled defaults to 0) -- must not fire
+    // even with an eligible contact and no check-in.
+    await run(db, `INSERT INTO users (id, email, name, timezone, checkin_reminder_time) VALUES (2, 'b@example.test', 'Sam', 'Australia/Sydney', '09:00')`);
+    await run(db, `INSERT INTO family_contacts (user_id, name, email, notify_email) VALUES (2, 'Jo', 'jo@example.test', 1)`);
+
+    // user 3: opted in and has an eligible contact, but already checked in today -- must not fire.
+    await run(db, `INSERT INTO users (id, email, name, timezone, checkin_reminder_time, missed_checkin_alerts_enabled) VALUES (3, 'c@example.test', 'Ren', 'Australia/Sydney', '09:00', 1)`);
+    await run(db, `INSERT INTO family_contacts (user_id, name, email, notify_email) VALUES (3, 'Kai', 'kai@example.test', 1)`);
+    await run(db, `INSERT INTO checkins (user_id, created_at) VALUES (3, '2026-08-17 01:00:00')`); // 11:00 Sydney, today
+
+    // user 4: opted in, no check-in, but no eligible contact (notify_email off) -- must not fire.
+    await run(db, `INSERT INTO users (id, email, name, timezone, checkin_reminder_time, missed_checkin_alerts_enabled) VALUES (4, 'd@example.test', 'Lee', 'Australia/Sydney', '09:00', 1)`);
+    await run(db, `INSERT INTO family_contacts (user_id, name, email, notify_email) VALUES (4, 'Noa', 'noa@example.test', 0)`);
+
+    await scheduler.runMissedCheckinAlerts(db, atGrace);
+    const claims = await all(db, `SELECT * FROM reminder_log WHERE reminder_type = 'missed_checkin_family_alert'`);
+    assert.equal(claims.length, 0);
+  } finally {
+    await new Promise((resolve) => db.close(resolve));
+  }
+});
+
+test('tick runs all five reminder passes without throwing when push is not configured', async () => {
   const db = await seededDb();
   try {
     await run(db, `INSERT INTO users (id, email, timezone, checkin_reminder_time) VALUES (1, 'a@example.test', 'Australia/Sydney', '10:30')`);
@@ -223,6 +279,9 @@ test('tick runs all four reminder passes without throwing when push is not confi
     await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (1, 1, 'Dr Lee', '2026-08-17T02:00:00Z')`);
     const now = new Date('2026-08-17T00:30:00Z');
     await scheduler.tick(db, now);
+    // Only 3 actually claim here -- this user hasn't opted into missed-check-in alerts (the
+    // default), so that pass runs but has nothing to do; that's the point being verified, not
+    // a limitation of this test.
     const claims = await all(db, `SELECT reminder_type FROM reminder_log ORDER BY reminder_type`);
     assert.deepEqual(claims.map((c) => c.reminder_type), ['appointment', 'checkin', 'medication']);
   } finally {

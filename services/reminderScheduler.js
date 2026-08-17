@@ -1,9 +1,11 @@
 const cron = require('node-cron');
 const { getAll, getRow, run } = require('./careAccess');
 const { sendPushToUser, isConfigured } = require('./pushNotifications');
+const { notifyFamilyMissedCheckin } = require('./notification');
 
 const MEDICATION_RENEWAL_WARNING_DAYS = Number(process.env.MEDICATION_RENEWAL_WARNING_DAYS) || 3;
 const APPOINTMENT_REMINDER_HOURS_BEFORE = Number(process.env.APPOINTMENT_REMINDER_HOURS_BEFORE) || 2;
+const MISSED_CHECKIN_GRACE_HOURS = Number(process.env.MISSED_CHECKIN_GRACE_HOURS) || 4;
 const DEFAULT_TIMEZONE = 'Australia/Sydney';
 // The check-in reminder has no medication to key off of, so it claims this
 // sentinel reference_id -- reminder_log.reference_id is NOT NULL precisely
@@ -82,6 +84,14 @@ async function claimReminder(db, { userId, type, referenceId, date }) {
   }
 }
 
+/** Whether `userId` already has a check-in on `date` (their local calendar day, per `tz`). */
+async function hasCheckedInToday(db, userId, tz, date) {
+  const lastCheckin = await getRow(db,
+    'SELECT created_at FROM checkins WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [userId]);
+  if (!lastCheckin) return false;
+  return localDateAndTime(tz, parseDbTimestamp(lastCheckin.created_at)).date === date;
+}
+
 async function runCheckinReminders(db, now = new Date()) {
   const users = await getAll(db,
     `SELECT id, timezone, checkin_reminder_time
@@ -92,12 +102,7 @@ async function runCheckinReminders(db, now = new Date()) {
     const { date, time } = localDateAndTime(tz, now);
     if (time !== (user.checkin_reminder_time || '09:00').slice(0, 5)) continue;
 
-    const lastCheckin = await getRow(db,
-      'SELECT created_at FROM checkins WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', [user.id]);
-    if (lastCheckin) {
-      const lastLocalDate = localDateAndTime(tz, parseDbTimestamp(lastCheckin.created_at)).date;
-      if (lastLocalDate === date) continue; // Already checked in today -- nothing to nudge about.
-    }
+    if (await hasCheckedInToday(db, user.id, tz, date)) continue; // Nothing to nudge about.
 
     if (!(await claimReminder(db, { userId: user.id, type: 'checkin', referenceId: CHECKIN_REFERENCE_ID, date }))) continue;
 
@@ -216,12 +221,67 @@ async function runAppointmentReminders(db, now = new Date()) {
   }
 }
 
+/**
+ * If a resident has opted in (missed_checkin_alerts_enabled -- off by
+ * default, see migrations/notifications.js for why), and still hasn't
+ * checked in by MISSED_CHECKIN_GRACE_HOURS after their own reminder time,
+ * this lets their family contacts know via the same email/SMS channel
+ * notifyFamily already uses for "a check-in was recorded". The resident
+ * also gets a quiet (non-alarm) push telling them their family was
+ * notified -- this never happens silently behind their back, matching the
+ * consent-first design used elsewhere in this app (e.g. care-access grants).
+ */
+async function runMissedCheckinAlerts(db, now = new Date()) {
+  const users = await getAll(db,
+    `SELECT id, name, full_name, timezone, checkin_reminder_time
+     FROM users WHERE missed_checkin_alerts_enabled = 1 AND checkin_reminder_time IS NOT NULL`);
+
+  const graceMinutes = MISSED_CHECKIN_GRACE_HOURS * 60;
+
+  for (const user of users) {
+    const tz = user.timezone || DEFAULT_TIMEZONE;
+    const { date, time } = localDateAndTime(tz, now);
+    const [reminderHour, reminderMinute] = (user.checkin_reminder_time || '09:00').slice(0, 5).split(':').map(Number);
+    const [nowHour, nowMinute] = time.split(':').map(Number);
+
+    // A >= check against (reminder time + grace period), not an exact-minute
+    // match -- same robustness principle as the appointment reminder above.
+    if (nowHour * 60 + nowMinute < reminderHour * 60 + reminderMinute + graceMinutes) continue;
+
+    if (await hasCheckedInToday(db, user.id, tz, date)) continue;
+
+    const contacts = await getAll(db,
+      `SELECT id FROM family_contacts
+       WHERE user_id = ? AND is_active = 1 AND ((notify_email = 1 AND email IS NOT NULL) OR (notify_sms = 1 AND phone IS NOT NULL))`,
+      [user.id]);
+    if (!contacts.length) continue; // Nobody to tell -- don't burn today's claim on a no-op.
+
+    if (!(await claimReminder(db, { userId: user.id, type: 'missed_checkin_family_alert', referenceId: CHECKIN_REFERENCE_ID, date }))) continue;
+
+    const patientName = user.name || user.full_name || 'Your family member';
+    try {
+      await notifyFamilyMissedCheckin(user.id, patientName, db);
+    } catch (error) {
+      console.error(`[Reminders] Missed check-in family alert failed for user ${user.id}:`, error.message);
+    }
+
+    await sendPushToUser(db, user.id, {
+      title: 'We let your family know',
+      body: "You haven't checked in today yet, so we sent your family a gentle heads-up. Check in anytime to update them.",
+      tag: 'agecare-missed-checkin-transparency',
+      url: '/#/checkin',
+      alarm: false,
+    });
+  }
+}
+
 async function tick(db, now = new Date()) {
   for (const [label, task] of [
     ['check-in', runCheckinReminders],
     ['medication', runMedicationReminders],
     ['medication renewal', runMedicationRenewalWarnings],
     ['appointment', runAppointmentReminders],
+    ['missed check-in family alert', runMissedCheckinAlerts],
   ]) {
     try {
       await task(db, now);
@@ -235,12 +295,16 @@ let scheduledTask = null;
 
 function start(db) {
   if (scheduledTask) return scheduledTask;
-  if (!isConfigured()) {
-    console.log('[Reminders] Scheduler not started -- push notifications are not configured (missing VAPID keys).');
-    return null;
-  }
+  // Unlike earlier versions of this function, this no longer requires VAPID
+  // keys to start: the missed-check-in family alert sends email/SMS, not
+  // push, so it works with no push configuration at all. Each push-based
+  // pass already no-ops safely on its own via sendPushToUser when push isn't
+  // configured (see services/pushNotifications.js).
   scheduledTask = cron.schedule('* * * * *', () => tick(db));
   console.log('[Reminders] Reminder scheduler started (checking every minute)');
+  if (!isConfigured()) {
+    console.log('[Reminders] Note: push notifications are not configured (missing VAPID keys) -- push-based reminders are skipped until they are; email/SMS family alerts are unaffected.');
+  }
   return scheduledTask;
 }
 
@@ -259,6 +323,8 @@ module.exports = {
   runMedicationReminders,
   runMedicationRenewalWarnings,
   runAppointmentReminders,
+  runMissedCheckinAlerts,
+  hasCheckedInToday,
   localDateAndTime,
   daysUntil,
   toDateString,

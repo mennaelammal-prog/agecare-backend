@@ -25,13 +25,22 @@ test('notifications migration adds reminder preference columns and the subscript
 
     const objects = await all(db, `SELECT name FROM sqlite_master WHERE type IN ('table', 'index')`);
     const names = new Set(objects.map((object) => object.name));
-    for (const required of ['push_subscriptions', 'reminder_log', 'idx_push_subscriptions_user', 'idx_reminder_log_lookup']) {
+    for (const required of ['push_subscriptions', 'reminder_log', 'notification_log', 'idx_push_subscriptions_user', 'idx_reminder_log_lookup', 'idx_notification_log_status']) {
       assert.equal(names.has(required), true, `${required} should exist`);
     }
 
     const userColumns = new Set((await all(db, 'PRAGMA table_info(users)')).map((column) => column.name));
-    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled']) {
+    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled', 'missed_checkin_alerts_enabled']) {
       assert.equal(userColumns.has(required), true, `users.${required} should exist`);
+    }
+
+    // notification_log was, like appointments.is_active above, only ever
+    // defined in database/postgresSchema.js -- services/notification.js has
+    // relied on it unconditionally since before this session, so every
+    // family notification on check-in was silently failing in SQLite mode.
+    const notificationLogColumns = new Set((await all(db, 'PRAGMA table_info(notification_log)')).map((column) => column.name));
+    for (const required of ['contact_id', 'checkin_id', 'type', 'status', 'retry_count']) {
+      assert.equal(notificationLogColumns.has(required), true, `notification_log.${required} should exist`);
     }
 
     const subscriptionColumns = new Set((await all(db, 'PRAGMA table_info(push_subscriptions)')).map((column) => column.name));
