@@ -50,7 +50,7 @@ router.get('/preferences', async (req, res) => {
     const db = req.app.locals.db;
     const row = await getRow(db,
       `SELECT timezone, checkin_reminder_time, checkin_reminder_enabled, medication_reminders_enabled,
-              appointment_reminders_enabled, missed_checkin_alerts_enabled
+              appointment_reminders_enabled, missed_checkin_alerts_enabled, vital_alerts_enabled
        FROM users WHERE id = ?`, [req.userId]);
     if (!row) return res.status(404).json({ error: 'User not found.' });
     const devices = await getAll(db, 'SELECT id FROM push_subscriptions WHERE user_id = ?', [req.userId]);
@@ -67,6 +67,7 @@ router.get('/preferences', async (req, res) => {
         medication_reminders_enabled: Boolean(Number(row.medication_reminders_enabled ?? 1)),
         appointment_reminders_enabled: Boolean(Number(row.appointment_reminders_enabled ?? 1)),
         missed_checkin_alerts_enabled: Boolean(Number(row.missed_checkin_alerts_enabled ?? 0)),
+        vital_alerts_enabled: Boolean(Number(row.vital_alerts_enabled ?? 0)),
         notifiable_family_contact_count: eligibleContacts.length,
         push_configured: isConfigured(),
         device_count: devices.length,
@@ -81,7 +82,7 @@ router.get('/preferences', async (req, res) => {
 router.put('/preferences', async (req, res) => {
   const {
     checkin_reminder_time, checkin_reminder_enabled, medication_reminders_enabled,
-    appointment_reminders_enabled, missed_checkin_alerts_enabled, timezone,
+    appointment_reminders_enabled, missed_checkin_alerts_enabled, vital_alerts_enabled, timezone,
   } = req.body || {};
   if (checkin_reminder_time !== undefined && !TIME_RE.test(checkin_reminder_time)) {
     return res.status(400).json({ error: 'Reminder time must be in HH:MM format.' });
@@ -94,6 +95,7 @@ router.put('/preferences', async (req, res) => {
          medication_reminders_enabled = COALESCE(?, medication_reminders_enabled),
          appointment_reminders_enabled = COALESCE(?, appointment_reminders_enabled),
          missed_checkin_alerts_enabled = COALESCE(?, missed_checkin_alerts_enabled),
+         vital_alerts_enabled = COALESCE(?, vital_alerts_enabled),
          timezone = COALESCE(?, timezone)
        WHERE id = ?`,
       [
@@ -102,6 +104,7 @@ router.put('/preferences', async (req, res) => {
         medication_reminders_enabled === undefined ? null : (medication_reminders_enabled ? 1 : 0),
         appointment_reminders_enabled === undefined ? null : (appointment_reminders_enabled ? 1 : 0),
         missed_checkin_alerts_enabled === undefined ? null : (missed_checkin_alerts_enabled ? 1 : 0),
+        vital_alerts_enabled === undefined ? null : (vital_alerts_enabled ? 1 : 0),
         timezone || null,
         req.userId,
       ]);

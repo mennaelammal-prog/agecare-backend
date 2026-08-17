@@ -101,6 +101,20 @@ async function hasCheckedInToday(db, userId, tz, date) {
   return localDateAndTime(tz, parseDbTimestamp(lastCheckin.created_at)).date === date;
 }
 
+/**
+ * Family contacts actually reachable and consented to be notified --
+ * `notify_email`/`notify_sms` is the same per-contact opt-in already used
+ * for the existing "a check-in was recorded" notification, reused here
+ * rather than inventing a second consent signal. Shared by
+ * runMissedCheckinAlerts below and services/vitalAlerts.js.
+ */
+async function getEligibleFamilyContacts(db, userId) {
+  return getAll(db,
+    `SELECT id FROM family_contacts
+     WHERE user_id = ? AND is_active = 1 AND ((notify_email = 1 AND email IS NOT NULL) OR (notify_sms = 1 AND phone IS NOT NULL))`,
+    [userId]);
+}
+
 async function runCheckinReminders(db, now = new Date()) {
   const users = await getAll(db,
     `SELECT id, timezone, checkin_reminder_time
@@ -259,10 +273,7 @@ async function runMissedCheckinAlerts(db, now = new Date()) {
 
     if (await hasCheckedInToday(db, user.id, tz, date)) continue;
 
-    const contacts = await getAll(db,
-      `SELECT id FROM family_contacts
-       WHERE user_id = ? AND is_active = 1 AND ((notify_email = 1 AND email IS NOT NULL) OR (notify_sms = 1 AND phone IS NOT NULL))`,
-      [user.id]);
+    const contacts = await getEligibleFamilyContacts(db, user.id);
     if (!contacts.length) continue; // Nobody to tell -- don't burn today's claim on a no-op.
 
     if (!(await claimReminder(db, { userId: user.id, type: 'missed_checkin_family_alert', referenceId: CHECKIN_REFERENCE_ID, date }))) continue;
@@ -334,6 +345,8 @@ module.exports = {
   runAppointmentReminders,
   runMissedCheckinAlerts,
   hasCheckedInToday,
+  getEligibleFamilyContacts,
+  claimReminder,
   localDateAndTime,
   daysUntil,
   toDateString,

@@ -216,6 +216,7 @@ export const appRouter = router({
             medication_reminders_enabled: boolean;
             appointment_reminders_enabled: boolean;
             missed_checkin_alerts_enabled: boolean;
+            vital_alerts_enabled: boolean;
             notifiable_family_contact_count: number;
             push_configured: boolean;
             device_count: number;
@@ -228,6 +229,7 @@ export const appRouter = router({
           medicationRemindersEnabled: z.boolean().optional(),
           appointmentRemindersEnabled: z.boolean().optional(),
           missedCheckinAlertsEnabled: z.boolean().optional(),
+          vitalAlertsEnabled: z.boolean().optional(),
           timezone: z.string().min(1).max(80).optional(),
         }))
         .mutation(({ input }) => legacyRequest("/push/preferences", {
@@ -239,6 +241,7 @@ export const appRouter = router({
             medication_reminders_enabled: input.medicationRemindersEnabled,
             appointment_reminders_enabled: input.appointmentRemindersEnabled,
             missed_checkin_alerts_enabled: input.missedCheckinAlertsEnabled,
+            vital_alerts_enabled: input.vitalAlertsEnabled,
             timezone: input.timezone,
           },
         })),

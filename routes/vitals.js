@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { checkVitalAlerts } = require('../services/vitalAlerts');
 
 router.post('/', authMiddleware, async (req, res) => {
   const { blood_pressure_sys, blood_pressure_dia, heart_rate, temperature, weight, blood_sugar, spo2, notes } = req.body;
@@ -19,6 +20,13 @@ router.post('/', authMiddleware, async (req, res) => {
         }
       );
     });
+
+    // Don't wait for it -- same fire-and-forget pattern as
+    // routes/checkin.js's notifyFamily.
+    checkVitalAlerts(db, userId, req.body).catch((err) => {
+      console.error('[Vitals] Vital alert check failed:', err.message);
+    });
+
     res.status(201).json({ success: true, message: 'Vital signs recorded', data: vital });
   } catch (err) {
     res.status(500).json({ error: 'Failed to record vitals', details: err.message });

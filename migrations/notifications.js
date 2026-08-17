@@ -13,6 +13,11 @@ const statements = [
   // consent-first pattern elsewhere (care-access grants are opt-in per family member too)
   // rather than silently defaulting everyone into being watched.
   { label: 'users missed checkin family alert column', sql: 'ALTER TABLE users ADD COLUMN missed_checkin_alerts_enabled INTEGER DEFAULT 0' },
+  // Same opt-in-by-default reasoning as missed_checkin_alerts_enabled above --
+  // this only gates whether family gets told about an out-of-range vital
+  // reading; the resident always sees it themselves regardless (see
+  // services/vitalAlerts.js).
+  { label: 'users vital alerts enabled column', sql: 'ALTER TABLE users ADD COLUMN vital_alerts_enabled INTEGER DEFAULT 0' },
   // appointments.is_active was already part of the Postgres schema (routes/appointments.js
   // has always filtered/updated on it) but was missing from schema.sql -- every appointments
   // call in SQLite mode (local dev/tests) was throwing "no such column: is_active" before this.
