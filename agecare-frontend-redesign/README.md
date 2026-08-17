@@ -37,13 +37,16 @@ The former `FamilyManager.tsx`/`LinkPatientModule` (two separate nav items: "Fam
 The bell icon (top right) opens a **Reminders** panel (`client/src/components/ReminderSettings.tsx`)
 that turns on real Web Push for the signed-in member's device: a daily
 check-in nudge at a time they choose, a ping at each medication's scheduled
-time, and a warning as a prescription's `end_date` approaches. The backend
-side (`services/pushNotifications.js`, `services/reminderScheduler.js`,
+time, a heads-up 2 hours before each appointment, and a warning as a
+prescription's `end_date` approaches. The backend side
+(`services/pushNotifications.js`, `services/reminderScheduler.js`,
 `routes/push.js` at the repo root) checks every minute and dedupes so each
-reminder fires once per local day, in the member's own timezone.
+reminder fires once (per local day for check-in/medication/renewal, once per
+appointment for the appointment reminder), in the member's own timezone.
 
 - **While the app is open**, a reminder marked urgent (check-in, medication
-  due — not the renewal warning, which is informational) is relayed from
+  due — not the appointment heads-up or the renewal warning, both
+  informational) is relayed from
   `client/public/sw.js` to the open tab via `postMessage`, and
   `client/src/components/AlarmOverlay.tsx` shows a full-screen alert and
   rings a synthesized alarm tone (`client/src/lib/alarm.ts`, Web Audio

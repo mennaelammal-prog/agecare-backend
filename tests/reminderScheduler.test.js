@@ -75,6 +75,10 @@ async function seededDb() {
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT NOT NULL, dosage TEXT,
     time_of_day TEXT, end_date TEXT, is_active INTEGER DEFAULT 1
   )`);
+  await exec(db, `CREATE TABLE appointments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, doctor_name TEXT NOT NULL,
+    specialty TEXT, location TEXT, appointment_date DATETIME NOT NULL
+  )`);
   for (const migration of notificationStatements) await runMigrationTolerant(db, migration.sql);
   return db;
 }
@@ -170,15 +174,57 @@ test('runMedicationRenewalWarnings fires once a day within the warning window an
   }
 });
 
-test('tick runs all three reminder passes without throwing when push is not configured', async () => {
+test('runAppointmentReminders fires once an appointment enters the reminder window, and not before or after', async () => {
+  const db = await seededDb();
+  try {
+    await run(db, `INSERT INTO users (id, email, timezone) VALUES (1, 'a@example.test', 'Australia/Sydney')`);
+    // now = 2026-08-17T00:30:00Z. Appointment #1 is 90 minutes out (inside the
+    // default 2h window); #2 is 3 hours out (outside it); #3 already passed.
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (1, 1, 'Dr Lee', '2026-08-17T02:00:00Z')`);
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (2, 1, 'Dr Patel', '2026-08-17T03:30:00Z')`);
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (3, 1, 'Dr Kim', '2026-08-17T00:00:00Z')`);
+    const now = new Date('2026-08-17T00:30:00Z');
+
+    await scheduler.runAppointmentReminders(db, now);
+    const claims = await all(db, `SELECT reference_id FROM reminder_log WHERE reminder_type = 'appointment' ORDER BY reference_id`);
+    assert.deepEqual(claims.map((c) => c.reference_id), [1]);
+
+    // A second tick a minute later, still inside the window, must not double-claim.
+    await scheduler.runAppointmentReminders(db, new Date('2026-08-17T00:31:00Z'));
+    const claimsAfter = await all(db, `SELECT reference_id FROM reminder_log WHERE reminder_type = 'appointment'`);
+    assert.equal(claimsAfter.length, 1);
+  } finally {
+    await new Promise((resolve) => db.close(resolve));
+  }
+});
+
+test('runAppointmentReminders respects the per-user toggle and skips inactive appointments', async () => {
+  const db = await seededDb();
+  try {
+    await run(db, `INSERT INTO users (id, email, timezone, appointment_reminders_enabled) VALUES (1, 'a@example.test', 'Australia/Sydney', 0)`);
+    await run(db, `INSERT INTO users (id, email, timezone) VALUES (2, 'b@example.test', 'Australia/Sydney')`);
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (1, 1, 'Dr Lee', '2026-08-17T02:00:00Z')`);
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date, is_active) VALUES (2, 2, 'Dr Patel', '2026-08-17T02:00:00Z', 0)`);
+    const now = new Date('2026-08-17T00:30:00Z');
+
+    await scheduler.runAppointmentReminders(db, now);
+    const claims = await all(db, `SELECT * FROM reminder_log WHERE reminder_type = 'appointment'`);
+    assert.equal(claims.length, 0);
+  } finally {
+    await new Promise((resolve) => db.close(resolve));
+  }
+});
+
+test('tick runs all four reminder passes without throwing when push is not configured', async () => {
   const db = await seededDb();
   try {
     await run(db, `INSERT INTO users (id, email, timezone, checkin_reminder_time) VALUES (1, 'a@example.test', 'Australia/Sydney', '10:30')`);
     await run(db, `INSERT INTO medications (id, user_id, name, time_of_day) VALUES (1, 1, 'Metformin', '10:30')`);
+    await run(db, `INSERT INTO appointments (id, user_id, doctor_name, appointment_date) VALUES (1, 1, 'Dr Lee', '2026-08-17T02:00:00Z')`);
     const now = new Date('2026-08-17T00:30:00Z');
     await scheduler.tick(db, now);
     const claims = await all(db, `SELECT reminder_type FROM reminder_log ORDER BY reminder_type`);
-    assert.deepEqual(claims.map((c) => c.reminder_type), ['checkin', 'medication']);
+    assert.deepEqual(claims.map((c) => c.reminder_type), ['appointment', 'checkin', 'medication']);
   } finally {
     await new Promise((resolve) => db.close(resolve));
   }

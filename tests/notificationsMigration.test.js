@@ -15,6 +15,12 @@ test('notifications migration adds reminder preference columns and the subscript
   const db = new sqlite3.Database(':memory:');
   try {
     await exec(db, `CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL)`);
+    // Matches database/schema.sql's appointments table -- no is_active
+    // column, same as production SQLite before this migration adds it.
+    await exec(db, `CREATE TABLE appointments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      doctor_name TEXT NOT NULL, appointment_date DATETIME NOT NULL
+    )`);
     for (const migration of statements) await exec(db, migration.sql);
 
     const objects = await all(db, `SELECT name FROM sqlite_master WHERE type IN ('table', 'index')`);
@@ -24,7 +30,7 @@ test('notifications migration adds reminder preference columns and the subscript
     }
 
     const userColumns = new Set((await all(db, 'PRAGMA table_info(users)')).map((column) => column.name));
-    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled']) {
+    for (const required of ['timezone', 'checkin_reminder_time', 'checkin_reminder_enabled', 'medication_reminders_enabled', 'appointment_reminders_enabled']) {
       assert.equal(userColumns.has(required), true, `users.${required} should exist`);
     }
 
@@ -32,6 +38,12 @@ test('notifications migration adds reminder preference columns and the subscript
     for (const required of ['user_id', 'endpoint', 'p256dh', 'auth']) {
       assert.equal(subscriptionColumns.has(required), true, `push_subscriptions.${required} should exist`);
     }
+
+    // The pre-existing gap this migration also closes: routes/appointments.js
+    // has always filtered/updated on is_active, but SQLite's schema.sql never
+    // defined it -- every appointments call in SQLite mode was broken before this.
+    const appointmentColumns = new Set((await all(db, 'PRAGMA table_info(appointments)')).map((column) => column.name));
+    assert.equal(appointmentColumns.has('is_active'), true, 'appointments.is_active should exist');
   } finally {
     await new Promise((resolve) => db.close(resolve));
   }
@@ -42,6 +54,10 @@ test('reminder_log rejects a second reminder of the same type for the same user 
   const run = (sql, params = []) => new Promise((resolve, reject) => db.run(sql, params, (error) => error ? reject(error) : resolve()));
   try {
     await exec(db, `CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL)`);
+    await exec(db, `CREATE TABLE appointments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+      doctor_name TEXT NOT NULL, appointment_date DATETIME NOT NULL
+    )`);
     for (const migration of statements) await exec(db, migration.sql);
     await run('INSERT INTO users (id, email) VALUES (1, ?)', ['patient@example.test']);
 

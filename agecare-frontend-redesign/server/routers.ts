@@ -214,6 +214,7 @@ export const appRouter = router({
             checkin_reminder_time: string;
             checkin_reminder_enabled: boolean;
             medication_reminders_enabled: boolean;
+            appointment_reminders_enabled: boolean;
             push_configured: boolean;
             device_count: number;
           };
@@ -223,6 +224,7 @@ export const appRouter = router({
           checkinReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
           checkinReminderEnabled: z.boolean().optional(),
           medicationRemindersEnabled: z.boolean().optional(),
+          appointmentRemindersEnabled: z.boolean().optional(),
           timezone: z.string().min(1).max(80).optional(),
         }))
         .mutation(({ input }) => legacyRequest("/push/preferences", {
@@ -232,6 +234,7 @@ export const appRouter = router({
             checkin_reminder_time: input.checkinReminderTime,
             checkin_reminder_enabled: input.checkinReminderEnabled,
             medication_reminders_enabled: input.medicationRemindersEnabled,
+            appointment_reminders_enabled: input.appointmentRemindersEnabled,
             timezone: input.timezone,
           },
         })),
