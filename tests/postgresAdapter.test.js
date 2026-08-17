@@ -28,6 +28,7 @@ test('PostgreSQL schema repairs reminder preference columns unconditionally, lik
     "ADD COLUMN IF NOT EXISTS checkin_reminder_time TEXT NOT NULL DEFAULT '09:00'",
     'ADD COLUMN IF NOT EXISTS checkin_reminder_enabled SMALLINT NOT NULL DEFAULT 1',
     'ADD COLUMN IF NOT EXISTS medication_reminders_enabled SMALLINT NOT NULL DEFAULT 1',
+    'ADD COLUMN IF NOT EXISTS appointment_reminders_enabled SMALLINT NOT NULL DEFAULT 1',
   ]) {
     assert.match(schema, new RegExp(column));
   }

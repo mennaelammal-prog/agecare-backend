@@ -1,13 +1,14 @@
 /**
  * Turns on real Web Push reminders for this device: a daily check-in nudge,
- * a ping at each medication's scheduled time, and a prescription-renewal
- * warning as an end_date approaches (see services/reminderScheduler.js on
- * the backend). Requires the backend to have VAPID_PUBLIC_KEY /
- * VAPID_PRIVATE_KEY configured (see RENDER_DEPLOYMENT.md) -- until then
- * this shows a plain "not set up yet" message instead of a broken toggle.
+ * a ping at each medication's scheduled time, a heads-up 2 hours before each
+ * appointment, and a prescription-renewal warning as an end_date approaches
+ * (see services/reminderScheduler.js on the backend). Requires the backend
+ * to have VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY configured (see
+ * RENDER_DEPLOYMENT.md) -- until then this shows a plain "not set up yet"
+ * message instead of a broken toggle.
  */
 import { useEffect, useState } from "react";
-import { Bell, BellOff, BellRing, ClipboardCheck, Loader2, Pill } from "lucide-react";
+import { Bell, BellOff, BellRing, CalendarClock, ClipboardCheck, Loader2, Pill } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
@@ -112,7 +113,7 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
         <BellRing size={18} aria-hidden="true" />
         <div>
           <strong>Reminders</strong>
-          <small>A ringing alert for your daily check-in and each medication.</small>
+          <small>A ringing alert for your daily check-in, each medication, and a heads-up before appointments.</small>
         </div>
       </div>
 
@@ -142,6 +143,14 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
               type="checkbox"
               checked={preferences.medication_reminders_enabled}
               onChange={(event) => updateMutation.mutate({ token, medicationRemindersEnabled: event.target.checked })}
+            />
+          </label>
+          <label className="reminder-field reminder-field-toggle">
+            <span><CalendarClock size={15} aria-hidden="true" /> Appointment reminders (2 hours before)</span>
+            <input
+              type="checkbox"
+              checked={preferences.appointment_reminders_enabled}
+              onChange={(event) => updateMutation.mutate({ token, appointmentRemindersEnabled: event.target.checked })}
             />
           </label>
           <button type="button" className="quiet-link reminder-test" onClick={handleTest} disabled={testMutation.isPending}>

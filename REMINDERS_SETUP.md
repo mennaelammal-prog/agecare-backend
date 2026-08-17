@@ -1,9 +1,10 @@
-# Setting up push reminders (daily check-in, medication, renewal warnings)
+# Setting up push reminders (check-in, medication, appointments, renewals)
 
 This turns on real, ringing browser push notifications for every registered
 member: a daily check-in reminder at a time they choose, a ping at each
-medication's scheduled time, and a warning as a prescription's `end_date`
-approaches. The code for all of this ships already — `services/pushNotifications.js`
+medication's scheduled time, a heads-up 2 hours before each appointment, and
+a warning as a prescription's `end_date` approaches. The code for all of this
+ships already — `services/pushNotifications.js`
 and `services/reminderScheduler.js` on the backend, `ReminderSettings.tsx` and
 `AlarmOverlay.tsx` on the `agecare-frontend-redesign` frontend — but it stays
 dormant until two keys are configured. Nothing in the app breaks if you skip
@@ -64,6 +65,7 @@ Optional:
 | Variable | Value | Default if unset |
 |---|---|---|
 | `MEDICATION_RENEWAL_WARNING_DAYS` | how many days before a medication's `end_date` the renewal warning starts firing | `3` |
+| `APPOINTMENT_REMINDER_HOURS_BEFORE` | how many hours before an appointment's date/time the reminder fires | `2` |
 
 Save, and let the service redeploy (or trigger a manual deploy). On boot
 you should see this in the Logs tab:

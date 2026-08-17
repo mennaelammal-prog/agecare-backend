@@ -3,6 +3,7 @@ const { getAll, getRow, run } = require('./careAccess');
 const { sendPushToUser, isConfigured } = require('./pushNotifications');
 
 const MEDICATION_RENEWAL_WARNING_DAYS = Number(process.env.MEDICATION_RENEWAL_WARNING_DAYS) || 3;
+const APPOINTMENT_REMINDER_HOURS_BEFORE = Number(process.env.APPOINTMENT_REMINDER_HOURS_BEFORE) || 2;
 const DEFAULT_TIMEZONE = 'Australia/Sydney';
 // The check-in reminder has no medication to key off of, so it claims this
 // sentinel reference_id -- reminder_log.reference_id is NOT NULL precisely
@@ -166,11 +167,61 @@ async function runMedicationRenewalWarnings(db, now = new Date()) {
   }
 }
 
+/**
+ * appointment_date is a plain <input type="datetime-local"> value with no
+ * timezone marker -- both frontends already just do `new Date(value)` to
+ * display it (see LegacyCareModules.tsx / Appointments.jsx), so this reads
+ * it the same way rather than inventing a different interpretation just
+ * for reminders. Postgres returns a real Date object for the TIMESTAMPTZ
+ * column already, which `new Date(...)` passes through unchanged.
+ */
+async function runAppointmentReminders(db, now = new Date()) {
+  const appointments = await getAll(db,
+    `SELECT a.id, a.user_id, a.doctor_name, a.specialty, a.location, a.appointment_date, u.timezone
+     FROM appointments a
+     JOIN users u ON u.id = a.user_id
+     WHERE a.is_active = 1 AND u.appointment_reminders_enabled = 1`);
+
+  const windowMs = APPOINTMENT_REMINDER_HOURS_BEFORE * 60 * 60 * 1000;
+
+  for (const appointment of appointments) {
+    const appointmentTime = new Date(appointment.appointment_date);
+    if (Number.isNaN(appointmentTime.getTime())) continue;
+
+    const msUntil = appointmentTime.getTime() - now.getTime();
+    // A >= check against the whole window, not an exact-minute match, so a
+    // missed tick (a brief restart, a slow deploy) still catches it on the
+    // very next tick, right up until the appointment itself passes.
+    if (msUntil <= 0 || msUntil > windowMs) continue;
+
+    // Keyed on the appointment's own date (not "today"), so a reminder
+    // window that straddles midnight in the user's timezone can't send
+    // twice across the date rollover, and editing an appointment to a new
+    // date/time makes it eligible for a fresh reminder.
+    const reminderKey = toDateString(appointment.appointment_date) || String(appointment.id);
+    if (!(await claimReminder(db, { userId: appointment.user_id, type: 'appointment', referenceId: appointment.id, date: reminderKey }))) continue;
+
+    const tz = appointment.timezone || DEFAULT_TIMEZONE;
+    const when = appointmentTime.toLocaleString('en-AU', { timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    const withWhom = [appointment.doctor_name, appointment.specialty].filter(Boolean).join(' -- ');
+    const where = appointment.location ? ` at ${appointment.location}` : '';
+
+    await sendPushToUser(db, appointment.user_id, {
+      title: `Appointment in ${APPOINTMENT_REMINDER_HOURS_BEFORE} hours`,
+      body: `${withWhom}${where}, ${when}.`,
+      tag: `agecare-appointment-${appointment.id}`,
+      url: '/#/appointments',
+      alarm: false, // Advance notice, not an urgent right-now alarm like a due-now medication.
+    });
+  }
+}
+
 async function tick(db, now = new Date()) {
   for (const [label, task] of [
     ['check-in', runCheckinReminders],
     ['medication', runMedicationReminders],
     ['medication renewal', runMedicationRenewalWarnings],
+    ['appointment', runAppointmentReminders],
   ]) {
     try {
       await task(db, now);
@@ -207,6 +258,7 @@ module.exports = {
   runCheckinReminders,
   runMedicationReminders,
   runMedicationRenewalWarnings,
+  runAppointmentReminders,
   localDateAndTime,
   daysUntil,
   toDateString,

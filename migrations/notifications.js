@@ -7,6 +7,13 @@ const statements = [
   { label: 'users checkin reminder time column', sql: "ALTER TABLE users ADD COLUMN checkin_reminder_time TEXT DEFAULT '09:00'" },
   { label: 'users checkin reminder enabled column', sql: 'ALTER TABLE users ADD COLUMN checkin_reminder_enabled INTEGER DEFAULT 1' },
   { label: 'users medication reminders enabled column', sql: 'ALTER TABLE users ADD COLUMN medication_reminders_enabled INTEGER DEFAULT 1' },
+  { label: 'users appointment reminders enabled column', sql: 'ALTER TABLE users ADD COLUMN appointment_reminders_enabled INTEGER DEFAULT 1' },
+  // appointments.is_active was already part of the Postgres schema (routes/appointments.js
+  // has always filtered/updated on it) but was missing from schema.sql -- every appointments
+  // call in SQLite mode (local dev/tests) was throwing "no such column: is_active" before this.
+  // Postgres-backed production was never affected, but the reminder scheduler below needs this
+  // column to exist on both drivers to filter to active appointments.
+  { label: 'appointments active column', sql: 'ALTER TABLE appointments ADD COLUMN is_active INTEGER DEFAULT 1' },
   {
     label: 'push subscriptions table',
     sql: `CREATE TABLE IF NOT EXISTS push_subscriptions (
