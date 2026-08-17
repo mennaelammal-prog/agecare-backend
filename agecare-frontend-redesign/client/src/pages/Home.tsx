@@ -46,14 +46,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // equivalent (see the CSS-only gradient fallbacks still on .hero-photo,
 // .reflection-photo, and .agecare-app's background in index.css, used if
 // these fail to load). These are AI-generated replacements matching the
-// Heirloom Journal brief. The hero and reflection photos are self-hosted in
-// client/public/images/ (the user downloaded and uploaded them via GitHub's
-// web UI -- the session that generated them couldn't reach the CDN it
-// uploaded them to, only the CDN link, so it couldn't fetch the bytes
-// itself). The logo is still on Higgsfield's CDN pending the same treatment.
+// Heirloom Journal brief. All three (hero photo, reflection photo, and the
+// logo mark) are now self-hosted in client/public/images/ -- the user
+// downloaded them from the generation CDN and uploaded them via GitHub's
+// web UI, since the session that generated them couldn't reach that CDN
+// itself, only the link to it. No external image host is depended on
+// anymore.
 const heroImage = "/images/hero-journal.png";
 const reflectionImage = "/images/reflection-window.png";
-const logo = "https://d8j0ntlcm91z4.cloudfront.net/user_3FjmO4VOJz2wO3obSj9kLKJSpm4/hf_20260816_234006_ee34f997-3b42-42ee-88b5-f090ae76a6af.png";
+const logo = "/images/day-marker-logo.png";
 
 const navGroups = [
   {
