@@ -80,6 +80,15 @@ async function claimReminder(db, { userId, type, referenceId, date }) {
     return true;
   } catch (error) {
     if (/unique/i.test(error.message) || error.code === '23505') return false;
+    // 23514 = Postgres check_violation. This exact class of bug has happened
+    // before: reminder_log.reminder_type briefly had a CHECK constraint
+    // listing only the reminder types that existed when it was written,
+    // silently rejecting every claim for any type added afterward on every
+    // tick (see database/postgresSchema.js for the fix and full story). If
+    // this fires again, name the likely cause instead of a bare DB error.
+    if (error.code === '23514') {
+      console.error(`[Reminders] reminder_log rejected reminder_type "${type}" via a CHECK constraint -- see database/postgresSchema.js's reminder_log repair.`);
+    }
     throw error;
   }
 }

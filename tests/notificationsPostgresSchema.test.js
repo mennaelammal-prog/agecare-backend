@@ -85,3 +85,46 @@ test('PostgreSQL reminder_log dedupes a reminder type/reference/day, but allows 
   const rows = await pool.query('SELECT reminder_type, reference_id, reminder_date FROM reminder_log ORDER BY id');
   assert.equal(rows.rows.length, 3);
 });
+
+// Regression test for a real bug: reminder_log.reminder_type briefly had a
+// CHECK constraint listing only the reminder types that existed when it was
+// written ('checkin', 'medication', 'medication_renewal'). Every reminder
+// type added after that ('appointment', 'missed_checkin_family_alert', and
+// this same list will keep growing) silently failed its claimReminder
+// INSERT with a CHECK violation on every single scheduler tick, in
+// production, from the moment those features shipped -- SQLite's copy of
+// this table never had the constraint, so SQLite-based tests and local
+// smoke testing never caught it. This enumerates every reminder_type value
+// actually used anywhere in services/reminderScheduler.js so a similar
+// mistake (re-adding a restrictive CHECK, or some other rejection) fails a
+// test immediately instead of shipping silently broken again.
+test('reminder_log accepts every reminder_type value the scheduler actually uses', async () => {
+  const memory = newDb();
+  const { Pool } = memory.adapters.createPg();
+  const pool = new Pool();
+  await runPostgresSchema(pool);
+
+  const user = await pool.query(`INSERT INTO users (email, password_hash) VALUES ('a@example.test', 'x') RETURNING id`);
+  const userId = user.rows[0].id;
+
+  const usedTypes = [
+    'checkin',
+    'medication',
+    'medication_renewal',
+    'appointment',
+    'missed_checkin_family_alert',
+    // Vital-sign alerts encode metric+severity into the type itself
+    // (services/vitalAlerts.js) rather than a fixed enum -- exactly the
+    // kind of value a CHECK constraint here would silently reject again.
+    'vital_alert:heart_rate:critical',
+    'vital_alert:blood_pressure_sys:warning',
+  ];
+  for (const type of usedTypes) {
+    await pool.query(
+      `INSERT INTO reminder_log (user_id, reminder_type, reference_id, reminder_date) VALUES ($1, $2, 0, '2026-08-17')`,
+      [userId, type]);
+  }
+
+  const rows = await pool.query('SELECT reminder_type FROM reminder_log ORDER BY reminder_type');
+  assert.deepEqual(rows.rows.map((r) => r.reminder_type).sort(), [...usedTypes].sort());
+});
