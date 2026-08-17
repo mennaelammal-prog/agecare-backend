@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { careAccessRequestEmail, sendCareAccessRequestEmail } = require('../services/notification');
+const sqlite3 = require('sqlite3').verbose();
+const { careAccessRequestEmail, sendCareAccessRequestEmail, processNotification } = require('../services/notification');
 
 test('consent-request email is minimal and excludes patient care details', () => {
   const message = careAccessRequestEmail();
@@ -14,4 +15,35 @@ test('consent requests remain in-app only unless external email is explicitly en
   const result = await sendCareAccessRequestEmail({ to: 'patient@example.test' });
   assert.equal(result.success, false);
   assert.equal(result.disabled, true);
+});
+
+test('processNotification marks an unconfigured channel "skipped" and does not schedule a retry', async () => {
+  // Regression test: this used to mark it "retrying" and schedule another
+  // attempt via setTimeout(RETRY_DELAY) regardless of the reason for
+  // failure -- pointless when the reason is "SMTP was never configured",
+  // since nothing changes between now and then. Surfaced by a reminder
+  // scheduler test whose in-memory db had already closed by the time the
+  // stray retry timer fired.
+  const db = new sqlite3.Database(':memory:');
+  const exec = (sql) => new Promise((resolve, reject) => db.exec(sql, (error) => (error ? reject(error) : resolve())));
+  const run = (sql, params = []) => new Promise((resolve, reject) => db.run(sql, params, function onRun(error) {
+    if (error) return reject(error);
+    resolve(this.lastID);
+  }));
+  const get = (sql, params = []) => new Promise((resolve, reject) => db.get(sql, params, (error, row) => (error ? reject(error) : resolve(row))));
+
+  try {
+    await exec(`CREATE TABLE family_contacts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, email TEXT, phone TEXT, notify_email INTEGER, notify_sms INTEGER)`);
+    await exec(`CREATE TABLE notification_log (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_id INTEGER, checkin_id INTEGER, type TEXT, status TEXT DEFAULT 'pending', retry_count INTEGER DEFAULT 0, error_message TEXT, sent_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    const contactId = await run(`INSERT INTO family_contacts (user_id, name, email, notify_email) VALUES (1, 'Alex', 'alex@example.test', 1)`);
+    const logId = await run(`INSERT INTO notification_log (contact_id, type, status) VALUES (?, 'email', 'pending')`, [contactId]);
+
+    await processNotification(logId, { db });
+
+    const row = await get(`SELECT status, retry_count FROM notification_log WHERE id = ?`, [logId]);
+    assert.equal(row.status, 'skipped');
+    assert.equal(row.retry_count, 1); // Attempted once; not left "retrying" for a stray timer to pick up.
+  } finally {
+    await new Promise((resolve) => db.close(resolve));
+  }
 });

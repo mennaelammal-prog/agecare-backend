@@ -7,7 +7,9 @@ a warning as a prescription's `end_date` approaches. The code for all of this
 ships already — `services/pushNotifications.js`
 and `services/reminderScheduler.js` on the backend, `ReminderSettings.tsx` and
 `AlarmOverlay.tsx` on the `agecare-frontend-redesign` frontend — but it stays
-dormant until two keys are configured. Nothing in the app breaks if you skip
+dormant until two keys are configured. This doc also covers a related but
+separate feature at the bottom: notifying family when someone misses a
+check-in, which doesn't use push/VAPID at all. Nothing in the app breaks if you skip
 this: the "Reminders" panel (the bell icon, top right) just shows "Reminders
 aren't set up on this server yet." instead of a toggle.
 
@@ -106,16 +108,47 @@ a phone's own notification settings are.
   custom sound file to that — this is a real platform limitation, not
   something this app chose.
 - **App open in a tab**: the service worker relays the same message to the
-  open tab, which shows a full-screen alert and plays a synthesized
-  alarm-clock tone (two alternating tones on a loop, generated with the Web
-  Audio API — no audio file to host) until dismissed. This is the fuller
-  "alarm" experience the check-in and medication reminders are meant to
-  have; the prescription-renewal warning intentionally rings quietly
-  (system notification only) since it's informational, not urgent.
+  open tab, which shows a full-screen alert and plays a synthesized, gentle
+  two-note chime (generated with the Web Audio API — no audio file to host)
+  on a loop until dismissed, or automatically after 45 seconds either way.
+  This is the fuller "alarm" experience the check-in and medication
+  reminders are meant to have; the appointment heads-up and the
+  prescription-renewal warning both ring quietly (system notification only)
+  since they're informational, not urgent.
+
+## Notifying family when someone misses a check-in
+
+This is a related but separate feature from everything above: it sends
+**email/SMS to family contacts**, not a browser push notification, so it
+doesn't need VAPID keys at all — only whatever SMTP (`EMAIL_HOST`,
+`EMAIL_USER`, `EMAIL_PASS`) or Twilio (`TWILIO_SID`, `TWILIO_AUTH_TOKEN`,
+`TWILIO_PHONE`) configuration this backend already uses for its existing
+"a check-in was recorded" family notifications (`services/notification.js`).
+If neither is configured, this still runs safely — it just logs each
+attempt as `skipped` in `notification_log` rather than actually sending.
+
+- **Off by default.** Unlike the reminders above, this shares a resident's
+  own check-in behaviour with a third party, so it follows this app's
+  consent-first pattern elsewhere (care-access grants are opt-in per family
+  member too) rather than defaulting everyone into being watched. A resident
+  turns it on themselves in the Reminders panel ("Notify my family if I miss
+  a check-in").
+- **Who gets told** is whichever family contacts already have
+  `notify_email`/`notify_sms` turned on for them (the same address-book
+  entries and the same consent signal used for the existing check-in
+  notification) — not everyone with view access to their history.
+- **When it fires**: `APPOINTMENT_REMINDER_HOURS_BEFORE`'s sibling here is
+  `MISSED_CHECKIN_GRACE_HOURS` (default `4`) — hours after the resident's own
+  check-in reminder time before family gets told, if there's still no
+  check-in.
+- **Never silent**: the resident also gets a quiet push (if they have push
+  turned on) letting them know their family was notified, at the same
+  moment it happens — this is never done invisibly.
 
 ## Verifying without a live deploy
 
 The scheduler and dedupe logic are covered by `tests/reminderScheduler.test.js`,
-`tests/notificationsMigration.test.js`, and `tests/notificationsPostgresSchema.test.js`
-(`npm test` from the repo root) — these run entirely offline against SQLite
-and `pg-mem`, so they don't need real VAPID keys or a real push service.
+`tests/notificationsMigration.test.js`, `tests/notificationsPostgresSchema.test.js`,
+and `tests/notificationContent.test.js` (`npm test` from the repo root) —
+these run entirely offline against SQLite and `pg-mem`, so they don't need
+real VAPID keys, SMTP/Twilio credentials, or a real push service.
