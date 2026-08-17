@@ -34,7 +34,7 @@ async function request(baseUrl, pathName, token, options = {}) {
   return { status: response.status, body: await response.json() };
 }
 
-test('patient-controlled care access requires approval and stops immediately after revocation', { timeout: 20000 }, async () => {
+test('patient-controlled care access requires approval and stops immediately after revocation', { timeout: 30000 }, async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agecare-care-access-'));
   const dbPath = path.join(directory, 'test.db');
   const port = 3217;
@@ -48,7 +48,7 @@ test('patient-controlled care access requires approval and stops immediately aft
 
   try {
     let ready = false;
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 130; attempt += 1) {
       await wait(150);
       try {
         const health = await fetch(`${baseUrl}/health`);

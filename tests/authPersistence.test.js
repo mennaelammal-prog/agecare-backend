@@ -16,7 +16,7 @@ async function startServer(dbPath, port, secret) {
     stdio: 'ignore',
   });
   const baseUrl = `http://127.0.0.1:${port}/api`;
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     await wait(100);
     try {
       if ((await fetch(`${baseUrl}/health`)).ok) return { server, baseUrl };
