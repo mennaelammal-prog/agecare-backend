@@ -14,6 +14,32 @@ export function isPushSupported() {
   );
 }
 
+/**
+ * iOS (all browsers, since Apple requires them to run on WebKit) only
+ * exposes the Push API once a site has been added to the Home Screen and
+ * is opened as an installed app -- a plain Safari/Chrome-on-iOS tab never
+ * gets isPushSupported() to true, no matter how recent the browser is.
+ * There's no JS API to trigger that installation (unlike Chrome's
+ * `beforeinstallprompt` on desktop/Android), so the only way to get
+ * someone there is to tell them how. Used to show that one-time hint.
+ */
+export function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPod/.test(ua)) return true;
+  // iPadOS 13+ reports as "Macintosh" in the UA string by default; a touch
+  // Mac is actually an iPad.
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
+export function isRunningAsInstalledApp() {
+  if (typeof window === "undefined") return false;
+  return (
+    (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");

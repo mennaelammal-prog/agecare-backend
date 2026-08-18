@@ -191,6 +191,16 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .a11y-scale-button:hover { border-color: var(--verdigris); }
 .a11y-scale-button.is-active { color: #fffdf8; border-color: var(--verdigris); background: var(--verdigris); }
 
+/* One-time "Add to Home Screen" hint for iOS (AddToHomeScreenBanner.tsx) --
+   sits above the page's topline, in normal document flow (not fixed), so it
+   never fights the SOS button or toasts for space. */
+.a2hs-banner { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--copper-pale); border-radius: 12px; color: var(--verdigris-deep); background: var(--copper-pale); font-size: 12px; line-height: 1.55; }
+.a2hs-banner > svg:first-child { flex-shrink: 0; margin-top: 1px; color: var(--copper); }
+.a2hs-banner p { flex: 1; margin: 0; }
+.a2hs-inline-icon { display: inline; vertical-align: -2px; margin: 0 1px; }
+.a2hs-dismiss { flex-shrink: 0; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 50%; color: var(--verdigris-deep); background: transparent; cursor: pointer; }
+.a2hs-dismiss:hover { background: rgba(255, 253, 248, .6); }
+
 .sos-button { position: fixed; right: 26px; bottom: 26px; z-index: 45; display: flex; align-items: center; gap: 8px; padding: 14px 20px; border: 0; border-radius: 999px; color: #fffdf8; background: #b3401f; font-size: 13px; font-weight: 800; box-shadow: 0 14px 34px rgba(179, 64, 31, .35); cursor: pointer; transition: transform .16s var(--ease-out), background .18s var(--ease-out); }
 .sos-button:hover { background: #93321a; transform: translateY(-2px); }
 .sos-button:disabled { opacity: .6; cursor: default; transform: none; }
