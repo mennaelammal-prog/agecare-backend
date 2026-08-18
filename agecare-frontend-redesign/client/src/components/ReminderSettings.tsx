@@ -89,24 +89,16 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
     }
   }
 
-  if (!supported) {
-    return (
-      <div className="reminder-panel">
-        <p className="reminder-unavailable">Reminders with sound aren't available in this browser. Try a recent version of Chrome, Edge, or Firefox.</p>
-      </div>
-    );
-  }
-
-  if (vapidQuery.isError || (vapidQuery.data && !vapidQuery.data.publicKey)) {
-    return (
-      <div className="reminder-panel">
-        <p className="reminder-unavailable">Reminders aren't set up on this server yet.</p>
-      </div>
-    );
-  }
-
   const preferences = preferencesQuery.data?.data;
+  const vapidUnavailable = supported && (vapidQuery.isError || (vapidQuery.data && !vapidQuery.data.publicKey));
 
+  // The family-alert toggles below (missed check-in, unusual vital signs)
+  // only decide whether the *server* emails/texts family -- they don't
+  // depend on this device receiving a push notification at all, so they
+  // must not be hidden behind `supported`/`subscribed`. Browsers without
+  // the Push API (plain mobile Safari, unless added to the home screen)
+  // used to lose access to these two along with the on-device reminder
+  // toggle, which had nothing to do with push support.
   return (
     <div className="reminder-panel">
       <div className="reminder-panel-head">
@@ -117,47 +109,59 @@ export function ReminderSettings({ token }: ReminderSettingsProps) {
         </div>
       </div>
 
-      {subscribed ? (
-        <Button type="button" variant="outline" className="reminder-toggle" onClick={handleDisable} disabled={working}>
-          {working ? <Loader2 size={16} className="spin" /> : <BellOff size={16} />} Turn off on this device
-        </Button>
+      {!supported ? (
+        <p className="reminder-unavailable">Reminders with sound aren't available in this browser. Try a recent version of Chrome, Edge, or Firefox, or add this site to your iPhone's Home Screen and open it from there.</p>
+      ) : vapidUnavailable ? (
+        <p className="reminder-unavailable">Reminders aren't set up on this server yet.</p>
       ) : (
-        <Button type="button" className="reminder-toggle" onClick={handleEnable} disabled={working || vapidQuery.isLoading}>
-          {working ? <Loader2 size={16} className="spin" /> : <Bell size={16} />} Turn on for this device
-        </Button>
+        <>
+          {subscribed ? (
+            <Button type="button" variant="outline" className="reminder-toggle" onClick={handleDisable} disabled={working}>
+              {working ? <Loader2 size={16} className="spin" /> : <BellOff size={16} />} Turn off on this device
+            </Button>
+          ) : (
+            <Button type="button" className="reminder-toggle" onClick={handleEnable} disabled={working || vapidQuery.isLoading}>
+              {working ? <Loader2 size={16} className="spin" /> : <Bell size={16} />} Turn on for this device
+            </Button>
+          )}
+
+          {subscribed && preferences && (
+            <div className="reminder-fields">
+              <label className="reminder-field">
+                <span><ClipboardCheck size={15} aria-hidden="true" /> Daily check-in reminder</span>
+                <input
+                  type="time"
+                  defaultValue={preferences.checkin_reminder_time}
+                  onBlur={(event) => updateMutation.mutate({ token, checkinReminderTime: event.target.value })}
+                />
+              </label>
+              <label className="reminder-field reminder-field-toggle">
+                <span><Pill size={15} aria-hidden="true" /> Medication reminders</span>
+                <input
+                  type="checkbox"
+                  checked={preferences.medication_reminders_enabled}
+                  onChange={(event) => updateMutation.mutate({ token, medicationRemindersEnabled: event.target.checked })}
+                />
+              </label>
+              <label className="reminder-field reminder-field-toggle">
+                <span><CalendarClock size={15} aria-hidden="true" /> Appointment reminders (2 hours before)</span>
+                <input
+                  type="checkbox"
+                  checked={preferences.appointment_reminders_enabled}
+                  onChange={(event) => updateMutation.mutate({ token, appointmentRemindersEnabled: event.target.checked })}
+                />
+              </label>
+              <button type="button" className="quiet-link reminder-test" onClick={handleTest} disabled={testMutation.isPending}>
+                {testMutation.isPending ? "Sending..." : "Send a test reminder now"}
+              </button>
+              <p className="reminder-device-count">{preferences.device_count} device{preferences.device_count === 1 ? "" : "s"} registered.</p>
+            </div>
+          )}
+        </>
       )}
 
-      {subscribed && preferences && (
+      {preferences && (
         <div className="reminder-fields">
-          <label className="reminder-field">
-            <span><ClipboardCheck size={15} aria-hidden="true" /> Daily check-in reminder</span>
-            <input
-              type="time"
-              defaultValue={preferences.checkin_reminder_time}
-              onBlur={(event) => updateMutation.mutate({ token, checkinReminderTime: event.target.value })}
-            />
-          </label>
-          <label className="reminder-field reminder-field-toggle">
-            <span><Pill size={15} aria-hidden="true" /> Medication reminders</span>
-            <input
-              type="checkbox"
-              checked={preferences.medication_reminders_enabled}
-              onChange={(event) => updateMutation.mutate({ token, medicationRemindersEnabled: event.target.checked })}
-            />
-          </label>
-          <label className="reminder-field reminder-field-toggle">
-            <span><CalendarClock size={15} aria-hidden="true" /> Appointment reminders (2 hours before)</span>
-            <input
-              type="checkbox"
-              checked={preferences.appointment_reminders_enabled}
-              onChange={(event) => updateMutation.mutate({ token, appointmentRemindersEnabled: event.target.checked })}
-            />
-          </label>
-          <button type="button" className="quiet-link reminder-test" onClick={handleTest} disabled={testMutation.isPending}>
-            {testMutation.isPending ? "Sending..." : "Send a test reminder now"}
-          </button>
-          <p className="reminder-device-count">{preferences.device_count} device{preferences.device_count === 1 ? "" : "s"} registered.</p>
-
           <div className="reminder-family-alert">
             <label className="reminder-field reminder-field-toggle">
               <span><UsersRound size={15} aria-hidden="true" /> Notify my family if I miss a check-in</span>
