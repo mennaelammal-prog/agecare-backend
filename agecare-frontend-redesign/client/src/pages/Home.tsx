@@ -41,6 +41,7 @@ import { CareConnections } from "@/components/CareConnections";
 import { ReminderSettings } from "@/components/ReminderSettings";
 import { AlarmOverlay } from "@/components/AlarmOverlay";
 import { AccessibilitySettings } from "@/components/AccessibilitySettings";
+import { AddToHomeScreenBanner } from "@/components/AddToHomeScreenBanner";
 import { SOSButton } from "@/components/SOSButton";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -542,6 +543,7 @@ export default function Home() {
         those rules key off the <html> element's dir, not this one.
       */}
       <main className="content-shell" dir="ltr">
+        <AddToHomeScreenBanner />
         <div className="topline">
           <div>
             <p className="eyebrow"><Sun size={15} /> {formatTodayLong()}</p>
