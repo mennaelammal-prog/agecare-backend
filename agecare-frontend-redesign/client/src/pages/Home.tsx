@@ -498,6 +498,33 @@ export default function Home() {
               </button>
             );
           })}
+
+          {/* The sidebar's account chip and "Account connection" / "Disconnect"
+              links live in .sidebar-foot, which is part of <aside
+              className="sidebar">, entirely hidden below 820px. Without this,
+              there was no way to see connection status or sign out on
+              mobile at all -- repeating it here instead of duplicating the
+              sidebar markup as a whole. */}
+          <div className="mobile-nav-foot">
+            <div className="profile-chip">
+              <span className="profile-avatar" aria-hidden="true">A</span>
+              <span>
+                <strong>{legacyUserName || t("yourCareSpace")}</strong>
+                <small>{legacyToken ? t("connected") : t("privateAndPersonal")}</small>
+              </span>
+              <MoreHorizontal size={18} aria-hidden="true" />
+            </div>
+            <button type="button" className="quiet-link" onClick={() => { setMenuOpen(false); openAccount(); }}>
+              <Settings size={17} /> {legacyToken ? t("accountConnection") : t("connectAgeCare")}
+            </button>
+            <button
+              type="button"
+              className="quiet-link"
+              onClick={() => { setMenuOpen(false); legacyToken ? disconnectLegacyAccount() : openAccount(); }}
+            >
+              <LogOut size={17} /> {legacyToken ? t("disconnect") : t("signIn")}
+            </button>
+          </div>
         </nav>
       )}
 
