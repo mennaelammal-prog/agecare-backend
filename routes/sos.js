@@ -24,15 +24,19 @@ router.post('/', async (req, res) => {
     await run(db, 'INSERT INTO sos_events (user_id, contacts_notified) VALUES (?, ?)', [userId, contactsNotified]);
 
     // A separate confirmation back to the resident's own device(s) -- not
-    // the alert itself, just letting them know what happened.
-    await sendPushToUser(db, userId, {
+    // the alert itself, and not the confirmation either: the JSON response
+    // below (shown as a toast in the app) already is that. This is a
+    // redundant backup channel, so it must not be able to delay the
+    // response the way it used to -- an emergency button answering "sent"
+    // can't be held hostage by a push service being slow to answer.
+    sendPushToUser(db, userId, {
       title: contactsNotified > 0 ? 'Your alert was sent' : 'No family contacts to notify',
       body: contactsNotified > 0
         ? `${contactsNotified} family member${contactsNotified === 1 ? '' : 's'} ${contactsNotified === 1 ? 'was' : 'were'} notified that you need help.`
         : 'Add a family contact with an email or phone number in Care Connections so this can reach someone next time.',
       tag: 'agecare-sos-confirmation',
       alarm: false,
-    });
+    }).catch((error) => console.error('[SOS] Confirmation push failed:', error.message));
 
     res.status(201).json({ success: true, contactsNotified });
   } catch (error) {

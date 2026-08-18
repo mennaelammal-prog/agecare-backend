@@ -19,6 +19,14 @@ try {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      // nodemailer's own defaults (2 min connection, 10 min socket) let one
+      // stuck SMTP connection hang far longer than anyone -- especially
+      // someone who just pressed "I need help" -- would ever wait, with no
+      // clear error to show for it. Fail fast instead: a real send to a
+      // working provider completes in a couple of seconds at most.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
     console.log('[Notify] Email transporter configured');
   } else {
@@ -381,19 +389,39 @@ async function notifyFamilySOS(userId, patientName, db = getDb()) {
     '- AgeCare',
   ].join('\n');
 
+  // contactsNotified is counted synchronously, from data already in hand --
+  // the actual sends below are fire-and-forget. An emergency button has to
+  // confirm instantly; it can't make the resident sit and wait on however
+  // long a third-party mail/SMS provider takes to answer (a slow or
+  // temporarily stuck connection previously meant the whole request -- and
+  // the "your alert was sent" confirmation -- could hang for minutes with
+  // no feedback at all). Each send's real outcome is still tracked in
+  // notification_log exactly like every other notification's is; it's
+  // just not waited on here. A synchronous throw from queueNotification
+  // itself (a DB write, not a network call) is the only way this could
+  // fail before the count below is decided.
   let notified = 0;
+  const sends = [];
   for (const contact of contacts) {
     if (contact.email) {
-      const logId = await queueNotification({ contactId: contact.id, type: 'email', to: contact.email, db });
-      await processNotification(logId, { db, subject, body, force: true });
       notified += 1;
+      sends.push(
+        queueNotification({ contactId: contact.id, type: 'email', to: contact.email, db })
+          .then((logId) => processNotification(logId, { db, subject, body, force: true }))
+          .catch((error) => console.error(`[Notify] SOS email to contact ${contact.id} failed:`, error.message))
+      );
     }
     if (contact.phone) {
-      const logId = await queueNotification({ contactId: contact.id, type: 'sms', to: contact.phone, db });
-      await processNotification(logId, { db, subject, body, force: true });
       notified += 1;
+      sends.push(
+        queueNotification({ contactId: contact.id, type: 'sms', to: contact.phone, db })
+          .then((logId) => processNotification(logId, { db, subject, body, force: true }))
+          .catch((error) => console.error(`[Notify] SOS SMS to contact ${contact.id} failed:`, error.message))
+      );
     }
   }
+  Promise.all(sends).catch(() => {});
+
   return { contactsNotified: notified };
 }
 

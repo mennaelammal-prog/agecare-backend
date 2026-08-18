@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const fs = require('node:fs/promises');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 
@@ -107,6 +108,84 @@ test('SOS trigger with no family contacts still succeeds and reports zero notifi
     assert.equal(triggered.body.contactsNotified, 0);
   } finally {
     await stopServer(server);
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('SOS trigger responds immediately even when the email provider never answers', { timeout: 30000 }, async () => {
+  // Reproduces the real production incident this test guards against: the
+  // resident pressed "I need help" and the request hung with no response
+  // at all, because processNotification -> sendEmail was awaited directly
+  // in the SOS request path with no bound on how long a stuck SMTP
+  // connection could take (nodemailer's own defaults allow minutes). This
+  // spins up a bare TCP listener that accepts the connection but never
+  // sends an SMTP greeting -- as unresponsive as a mail server gets -- and
+  // asserts the SOS response comes back quickly anyway.
+  const stuckSmtp = net.createServer((socket) => {
+    socket.on('error', () => {}); // never greets; just let it sit there.
+  });
+  await new Promise((resolve) => stuckSmtp.listen(0, '127.0.0.1', resolve));
+  const stuckPort = stuckSmtp.address().port;
+
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'agecare-sos-slow-'));
+  const dbPath = path.join(directory, 'test.db');
+  const port = 3243;
+  const server = spawn(process.execPath, ['server.js'], {
+    cwd: path.join(__dirname, '..'),
+    env: {
+      ...process.env,
+      AGECARE_DB_PATH: dbPath,
+      PORT: String(port),
+      JWT_SECRET: 'isolated-sos-slow-test-secret',
+      NODE_ENV: 'test',
+      EMAIL_HOST: '127.0.0.1',
+      EMAIL_PORT: String(stuckPort),
+      EMAIL_SECURE: 'false',
+      EMAIL_USER: 'test',
+      EMAIL_PASS: 'test',
+    },
+    stdio: 'ignore',
+  });
+  const baseUrl = `http://127.0.0.1:${port}/api`;
+
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      await wait(100);
+      try {
+        if ((await fetch(`${baseUrl}/health`)).ok) { ready = true; break; }
+      } catch {
+        // Server is still booting.
+      }
+    }
+    assert.equal(ready, true, 'isolated backend should start');
+
+    const registration = await jsonRequest(baseUrl, '/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ full_name: 'Slow SMTP Test', email: 'slow-smtp@example.test', password: 'correct-password' }),
+    });
+    const token = registration.body.token;
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await jsonRequest(baseUrl, '/family', {
+      method: 'POST', headers: auth,
+      body: JSON.stringify({ name: 'Alex', relationship: 'Daughter', email: 'alex@example.test' }),
+    });
+
+    const started = Date.now();
+    const triggered = await jsonRequest(baseUrl, '/sos', { method: 'POST', headers: auth });
+    const elapsedMs = Date.now() - started;
+
+    assert.equal(triggered.status, 201);
+    assert.equal(triggered.body.contactsNotified, 1);
+    // nodemailer's own connection/greeting timeout on this stuck server is
+    // 10s (services/notification.js); comfortably under that is proof the
+    // response isn't waiting on the send at all, not just that it's fast
+    // this one time.
+    assert.ok(elapsedMs < 3000, `expected SOS to respond well under the SMTP timeout, took ${elapsedMs}ms`);
+  } finally {
+    await stopServer(server);
+    await new Promise((resolve) => stuckSmtp.close(resolve));
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
