@@ -23,10 +23,20 @@ try {
       // stuck SMTP connection hang far longer than anyone -- especially
       // someone who just pressed "I need help" -- would ever wait, with no
       // clear error to show for it. Fail fast instead: a real send to a
-      // working provider completes in a couple of seconds at most.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
+      // working provider completes in a couple of seconds at most. (SOS no
+      // longer waits on this at all -- see notifyFamilySOS -- but every
+      // other caller still does, so this still matters.)
+      connectionTimeout: 15_000,
+      greetingTimeout: 15_000,
+      socketTimeout: 20_000,
+      // Real production logs showed dozens of connection attempts to
+      // smtp.sendgrid.net timing out in a row, with exactly one succeeding
+      // in between -- the signature of a broken IPv6 route rather than a
+      // slow/overloaded server (a genuinely slow server fails consistently
+      // slowly, not "times out 40 times then works once"). Forcing IPv4
+      // is the standard fix for this on cloud hosts whose IPv6 route to a
+      // provider is broken or blackholed while IPv4 works fine.
+      family: 4,
     });
     console.log('[Notify] Email transporter configured');
   } else {
@@ -93,7 +103,11 @@ async function sendEmail({ to, subject, body, logId }) {
     console.log('[Notify] Email sent');
     return { success: true };
   } catch (err) {
-    console.error('[Notify] Email failed:', err.message);
+    // err.code (ETIMEDOUT, ECONNREFUSED, EAUTH, ...) is the useful part
+    // for telling a network problem apart from a credentials problem from
+    // the logs alone -- err.message on its own was just "Connection
+    // timeout" for several different underlying causes.
+    console.error(`[Notify] Email failed${err.code ? ` (${err.code})` : ''}:`, err.message);
     return { success: false, error: err.message };
   }
 }
