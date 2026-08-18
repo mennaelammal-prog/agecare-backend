@@ -9,9 +9,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       style={
+        // The shadcn template these came from assumes --popover/
+        // --popover-foreground tokens this app never defines, so sonner
+        // fell back to its own plain white/black defaults. Point them at
+        // the app's real card/ink/border tokens instead -- both the
+        // normal and high-contrast palettes already define these.
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
+          "--normal-bg": "var(--card)",
+          "--normal-text": "var(--ink)",
           "--normal-border": "var(--border)",
         } as React.CSSProperties
       }
