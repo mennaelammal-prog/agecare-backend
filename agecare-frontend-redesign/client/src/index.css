@@ -198,6 +198,14 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .sos-card p { margin: 0; color: var(--muted-ink); font-size: 13px; line-height: 1.55; }
 .sos-cancel { width: 100%; justify-content: center; min-height: 44px !important; border: 1px solid var(--line) !important; border-radius: 9px !important; color: var(--ink) !important; background: #fffdf8 !important; font-size: 12px !important; font-weight: 800 !important; }
 
+/* Toast notifications (sonner). Colors come from --normal-bg/-text/-border
+   set on the Toaster in sonner.tsx; font-size and font-family need an
+   explicit override here because sonner's own stylesheet sets both
+   directly on [data-sonner-toast] (13px, a generic system-font stack)
+   which otherwise wins over anything set through props alone. */
+[data-sonner-toast] { font-family: "Plus Jakarta Sans", sans-serif !important; font-size: 14px !important; line-height: 1.5 !important; }
+[data-sonner-toast] [data-title] { font-weight: 700; }
+
 .alarm-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: rgba(36, 30, 20, .6); backdrop-filter: blur(2px); }
 .alarm-card { display: grid; justify-items: center; gap: 14px; width: min(360px, 92vw); padding: 34px 28px; border-radius: 20px; background: #fffdf8; box-shadow: var(--shadow-soft); text-align: center; animation: alarm-pulse 1.1s ease-in-out infinite; }
 .alarm-icon { color: var(--copper); }

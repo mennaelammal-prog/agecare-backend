@@ -26,7 +26,10 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
-          <Toaster position="top-center" />
+          {/* Bottom-right, offset above the fixed SOS button -- "top-center"
+              (the shadcn default) sat directly over page headings like
+              "Care history". */}
+          <Toaster position="bottom-right" offset={{ bottom: 96, right: 26 }} mobileOffset={{ bottom: 96, right: 26 }} />
           <Router />
         </TooltipProvider>
       </ThemeProvider>
