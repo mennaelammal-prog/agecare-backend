@@ -143,6 +143,9 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--copper); outlin
 .quiet-link:hover { color: var(--verdigris-deep); }
 
 .mobile-bar, .mobile-nav { display: none; }
+/* Account chip + connection/sign-out links repeated in the mobile nav
+   dropdown (see Home.tsx) -- spans both of .mobile-nav's grid columns. */
+.mobile-nav-foot { grid-column: 1 / -1; display: grid; gap: 4px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
 .content-shell { position: relative; min-width: 0; max-width: 1560px; width: 100%; margin: 0 auto; padding: 42px clamp(22px, 4vw, 68px) 64px; }
 .topline { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
 .topline h1 { margin: 8px 0 0; font-family: "DM Serif Display", serif; font-size: clamp(36px, 4vw, 54px); font-weight: 400; letter-spacing: -.04em; line-height: .95; }
